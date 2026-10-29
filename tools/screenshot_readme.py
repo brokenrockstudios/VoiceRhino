@@ -28,9 +28,29 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 
 import screenshot_overlays  # noqa: E402
 from screenshot_settings import dark_palette  # noqa: E402
+from voicerhino.asr import storage  # noqa: E402
 from voicerhino.config import AppConfig, SourceConfig  # noqa: E402
 from voicerhino.pipeline import SourceLevel  # noqa: E402
 from voicerhino.ui.settings import SettingsDialog  # noqa: E402
+
+# What General › Downloaded models lists: a fixed set (key, bytes on disk) so the shot doesn't
+# depend on this PC's models folder. Sizes are as downloaded.
+DOWNLOADS = [
+    ("fw-large-v3-turbo", 1_621_667_008),
+    ("translate:Hy-MT2-1.8B-Q4_K_M.gguf", 1_133_080_448),
+    ("qwen3-asr-0.6b-int8", 1_000_089_677),
+    ("nemotron-streaming-en-160ms-int8", 662_744_235),
+    ("parakeet-tdt-0.6b-v2-int8", 661_428_477),
+    ("translate:opus-mt-zh-en-ctranslate2", 158_418_035),
+    ("translate:llama-b11980-bin-win-cpu-x64", 63_034_141),
+    ("speaker:titanet-small", 40_257_283),
+    ("vad", 643_854),
+]
+
+
+def fake_downloads() -> list[storage.Download]:
+    names = {key: name for key, name in storage._known().values()}
+    return [storage.Download(Path(key), names[key], size, key) for key, size in DOWNLOADS]
 
 
 def demo_config() -> AppConfig:
@@ -70,6 +90,8 @@ def main() -> None:
     shoot(dialog, dialog.windows_tab, "windows")
     dialog.speakers_tab.voice_check.setChecked(True)
     shoot(dialog, dialog.speakers_tab, "speakers")
+    storage.list_downloads = fake_downloads
+    shoot(dialog, dialog.general_tab, "general")
     dialog.close()
 
     # Translation: Chinese speech recognized by SenseVoice, translated to English by Opus-MT.

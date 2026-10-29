@@ -98,7 +98,8 @@ Right-click the tray icon → **Settings…**
   <tr>
     <td><img src="docs/images/settings-speakers.png" alt="Settings, Speakers tab: color speakers by voice, optional Discord names"><br>
       <b>Speakers:</b> a color per voice, or Discord names</td>
-    <td></td>
+    <td><img src="docs/images/settings-general.png" alt="Settings, General tab: lock hotkey and a list of downloaded models with their sizes and whether they're in use"><br>
+      <b>General:</b> the lock hotkey, and every downloaded model with its size; delete the ones you don't use</td>
   </tr>
 </table>
 
