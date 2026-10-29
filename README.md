@@ -19,9 +19,11 @@ _Built in honor of a deaf gaming friend, and for everyone who wants to follow th
 
 ## Quick start
 
-1. Get this folder onto the PC: `git clone https://github.com/brokenrockstudios/VoiceRhino.git`,
-   or download the zip from GitHub (Code → Download ZIP).
-2. Double-click **`run.bat`**. The first run installs what it needs (a few minutes: uv,
+1. Download **`VoiceRhino-<version>.zip`** from the
+   [Releases page](https://github.com/brokenrockstudios/VoiceRhino/releases) (under _Assets_ of
+   the latest release) and unzip it somewhere it can stay, e.g. `C:\VoiceRhino`.
+2. Double-click **`run.bat`**. Windows may warn about a file from the internet: click
+   _More info_ → _Run anyway_. The first run installs what it needs (a few minutes: uv,
    Python 3.12 and packages), then the app downloads its speech model (~640 MB) while
    showing progress. After that it starts in seconds.
 3. A **CC** icon appears in the system tray and two windows appear with dashed frames:
