@@ -1,6 +1,6 @@
 [project]
 name = "voicerhino"
-version = "0.1.0"
+version = "0.1.1"
 description = "Lightweight standalone live captions for Windows: any audio device or app, click-through overlays, scrollback history."
 readme = "README.md"
 license = "MIT"

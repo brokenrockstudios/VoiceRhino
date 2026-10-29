@@ -58,3 +58,31 @@ def test_history_window_leaves_out_hidden_sources():
     html = HistoryWindow(view, store)._html()
     assert "my own words" in html and "still talking" in html
     assert "push top lane" not in html and "cover the" not in html
+
+
+def painted_warning(window, monkeypatch) -> str | None:
+    """The warning a repaint draws (None: none drawn)."""
+    drawn: list[str | None] = []
+    monkeypatch.setattr(type(window), "_paint_warning", lambda self, p: drawn.append(self._shown_warning()))
+    window.grab()
+    return drawn[-1] if drawn else None
+
+
+def test_caption_window_shows_warning_only_with_captions(monkeypatch):
+    window = CaptionWindow(ViewConfig(clear_after=8), store_with_two_sources())
+    window.set_warning("⚠ Discord is very quiet")
+    window._last_activity = time.monotonic()
+    assert painted_warning(window, monkeypatch) == "⚠ Discord is very quiet"
+    window._last_activity = 0.0  # captions cleared: the bar over the game stays empty
+    assert painted_warning(window, monkeypatch) is None
+    window._last_activity = time.monotonic()
+    window.view.show_warnings = False
+    assert painted_warning(window, monkeypatch) is None
+
+
+def test_history_window_keeps_warning_up_unless_turned_off(monkeypatch):
+    window = HistoryWindow(ViewConfig.default_history(), TranscriptStore())  # nothing said lately
+    window.set_warning("⚠ Discord is very quiet")
+    assert painted_warning(window, monkeypatch) == "⚠ Discord is very quiet"
+    window.view.show_warnings = False
+    assert painted_warning(window, monkeypatch) is None

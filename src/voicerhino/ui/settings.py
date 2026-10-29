@@ -1230,6 +1230,8 @@ class WindowsTab(_Tab):
         self.speakers_check = QCheckBox("Show speaker names")
         self.speakers_check.setToolTip("Prefix lines with who is talking (see the Speakers tab)")
         self.speakers_check.toggled.connect(partial(self._set, "show_speakers"))
+        self.warnings_check = QCheckBox("Show audio warnings")
+        self.warnings_check.toggled.connect(partial(self._set, "show_warnings"))
         self.click_through_check = QCheckBox("Click-through when locked")
         self.click_through_check.setToolTip("When the windows are locked, clicks go through this window "
                                             "to the game underneath")
@@ -1269,6 +1271,9 @@ class WindowsTab(_Tab):
         form.addRow("History length:", self._history_fields[0])
         form.addRow("", self._history_fields[1])
         form.addRow("", self.speakers_check)
+        form.addRow("", _field(self.warnings_check,
+                               "E.g. '⚠ Discord is very quiet: turn its volume up'. A caption window shows it "
+                               "only along with captions; the history window keeps it up."))
         form.addRow("", self.click_through_check)
 
         self.editor = QWidget()
@@ -1333,6 +1338,7 @@ class WindowsTab(_Tab):
             self.history_seconds_spin.setValue(_int(view.history_seconds, d.history_seconds))
             self.timestamps_check.setChecked(bool(view.show_timestamps))
             self.speakers_check.setChecked(bool(view.show_speakers))
+            self.warnings_check.setChecked(bool(view.show_warnings))
             self.click_through_check.setChecked(bool(view.click_through))
         self._update_opacity_label()
         history = view.kind == "history"

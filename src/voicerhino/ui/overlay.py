@@ -108,7 +108,8 @@ class OverlayWindow(QWidget):
 
     def set_warning(self, text: str | None) -> None:
         """Show a small persistent note at the top of the window (None clears it).
-        Unlike show_status it stays visible over captions."""
+        Unlike show_status it stays visible over captions (in a caption window, only
+        while captions show). Hidden in windows with show_warnings off."""
         if text != self.warning:
             self.warning = text
             self.update()
@@ -199,8 +200,12 @@ class OverlayWindow(QWidget):
             p.drawText(r.adjusted(10, 4, -10, -4), Qt.AlignTop | Qt.AlignRight,
                        "drag to move · edges resize · right-click for options")
 
+    def _shown_warning(self) -> str | None:
+        return self.warning if self.view.show_warnings else None
+
     def _paint_warning(self, p: QPainter) -> None:
-        if not self.warning:
+        warning = self._shown_warning()
+        if not warning:
             return
         f = QFont("Segoe UI")
         f.setPixelSize(max(13, round(self.view.font_size * 0.4)))
@@ -210,9 +215,9 @@ class OverlayWindow(QWidget):
         r = QRectF(self.rect()).adjusted(10, top, -10, -4)
         flags = Qt.AlignTop | Qt.AlignHCenter
         p.setPen(QColor(0, 0, 0, 220))  # shadow, so it reads over a bright game too
-        p.drawText(r.translated(1, 1), flags, self.warning)
+        p.drawText(r.translated(1, 1), flags, warning)
         p.setPen(QColor(255, 183, 77))
-        p.drawText(r, flags, self.warning)
+        p.drawText(r, flags, warning)
 
     def _paint_status(self, p: QPainter) -> None:
         if not self._status:
@@ -308,10 +313,10 @@ class CaptionWindow(OverlayWindow):
         lines = self._layout(self._items(), font, label_font, self.width() - 2 * pad)[-max(1, v.lines):]
         self._showing = bool(lines)
         self._paint_frame(p, self._showing)
-        self._paint_warning(p)
         if not lines:
             self._paint_status(p)
             return
+        self._paint_warning(p)  # with the captions only: an empty bar over a game stays empty
         fm, lfm = QFontMetricsF(font), QFontMetricsF(label_font)
         line_h = fm.lineSpacing()
         y = self.height() - pad - line_h * len(lines) + fm.ascent()
@@ -387,7 +392,7 @@ class HistoryWindow(OverlayWindow):
             self._paint_status(p)
             return
         pad = 12
-        top = pad + (18 if not self.locked else 0) + (18 if self.warning else 0)
+        top = pad + (18 if not self.locked else 0) + (18 if self._shown_warning() else 0)
         width, avail = self.width() - 2 * pad, self.height() - top - pad
         self._doc.setDefaultFont(_font(v))
         self._doc.setTextWidth(width)

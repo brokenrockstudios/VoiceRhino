@@ -83,6 +83,7 @@ class ViewConfig:
     history_seconds: int = 60  # history: how far back to show
     show_timestamps: bool = True  # history
     show_speakers: bool = True
+    show_warnings: bool = True  # e.g. "Discord is very quiet"; caption windows show it only with captions
     # SourceConfig ids this window leaves out (e.g. your own mic in the big captions). A list of
     # hidden rather than shown sources, so a source added later shows everywhere until unticked.
     hidden_sources: list[str] = field(default_factory=list)

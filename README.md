@@ -107,6 +107,9 @@ Right-click the tray icon → **Settings…**
 what VoiceRhino hears). If voices stay too quiet even then, the caption windows show
 "⚠ … is very quiet": turn the volume up in Discord or in the Windows Volume Mixer.
 Discord-only capture follows Discord's slider there: if Discord is muted, captions stop.
+A caption window shows the warning only along with captions; the history window keeps it up.
+To hide it in a window (e.g. over a game), untick Settings → Windows → _Show audio warnings_,
+or right-click the window while unlocked.
 
 **Captions in the game:** overlays show over games in _borderless windowed_ mode. Some
 games in _exclusive fullscreen_ draw over everything; switch those to borderless, or put

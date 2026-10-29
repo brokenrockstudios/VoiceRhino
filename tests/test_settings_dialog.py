@@ -697,3 +697,18 @@ def test_downloaded_models_list_and_delete(monkeypatch):
     assert general.delete_unused_button.isEnabled()
     general.delete_unused_button.click()
     assert not parakeet.exists()
+
+
+def test_window_audio_warnings_choice():
+    dialog, emitted = make_dialog(AppConfig())
+    win = dialog.windows_tab
+    dialog.tabs.setCurrentWidget(win)
+    win.view_list.setCurrentRow(0)  # the caption window
+    assert win.warnings_check.isChecked()
+    win.warnings_check.setChecked(False)
+    dialog.apply()
+    assert [v.show_warnings for v in emitted[-1].views] == [False, True]
+    win.view_list.setCurrentRow(1)
+    assert win.warnings_check.isChecked()
+    win.view_list.setCurrentRow(0)
+    assert not win.warnings_check.isChecked()

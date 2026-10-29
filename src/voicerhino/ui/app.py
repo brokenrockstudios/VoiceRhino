@@ -14,7 +14,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
 from .. import config as config_io
 from ..asr.catalog import DEFAULT_MODEL_ID, VAD_MODELS, get_model, supports_live_model
-from ..asr.download import ensure_download
+from ..asr.download import ensure_download, is_downloaded
 from ..asr.engines import Engine, EngineOptions, StreamingEngine, load_engine, load_streaming_engine
 from ..audio.base import AudioSource
 from ..config import AppConfig, SourceConfig, ViewConfig
@@ -27,12 +27,14 @@ from .theme import app_icon, apply_dark_theme
 from .winutil import GlobalHotkey, autostart_enabled, set_autostart
 
 log = logging.getLogger(__name__)
+LOADING_SECONDS = 3600.0  # model download/load messages stay up until "Listening" or an error replaces them
 
 
 class _Signals(QObject):
     utterance = Signal(object)  # pipeline threads -> UI thread
     engine_ready = Signal(object, object, object)  # (engine, key, error)
     status = Signal(str)
+    loading = Signal(str)  # like status, but stays up (LOADING_SECONDS)
 
 
 def make_source(sc: SourceConfig) -> AudioSource:
@@ -61,6 +63,7 @@ class Controller(QObject):
         self.signals.utterance.connect(self._on_utterance)
         self.signals.engine_ready.connect(self._on_engine_ready)
         self.signals.status.connect(self._set_status)
+        self.signals.loading.connect(lambda text: self._set_status(text, LOADING_SECONDS))
         self.windows: dict[str, OverlayWindow] = {}
         self.pipelines: list[CaptionPipeline] = []
         self.engine: Engine | None = None
@@ -74,6 +77,7 @@ class Controller(QObject):
         self.warning: str | None = None  # shown at the top of every window, e.g. very quiet audio
         self._settings = None
         self._settings_snapshot: AppConfig | None = None
+        self._first_run_hint = False  # very first run: say "ready" until the first caption shows
         self._save_timer = QTimer(self, singleShot=True, interval=1000, timeout=self.save)
         self._watchdog = QTimer(self, interval=2000, timeout=self._check_pipelines)
         self.hotkey = GlobalHotkey(self.toggle_lock)
@@ -86,6 +90,7 @@ class Controller(QObject):
 
     # --- lifecycle ---------------------------------------------------------
     def start(self, first_run: bool) -> None:
+        self._first_run_hint = first_run
         self._sync_windows()
         if not self.hotkey.register(self.config.lock_hotkey):
             self._set_status(f"Hotkey {self.config.lock_hotkey} is unavailable; use the tray menu to lock")
@@ -94,12 +99,17 @@ class Controller(QObject):
         self._configure_translation()
         self._load_engine()
         if first_run:
-            self.tray.showMessage(
-                "VoiceRhino is running",
-                f"Drag the caption windows where you want them, then press {self.config.lock_hotkey} "
-                "to lock them (click-through). Right-click the CC tray icon for settings.",
-                app_icon(), 15000,
-            )
+            spec = self._model_spec()
+            if spec.family != "faster_whisper" and not is_downloaded(spec.source):
+                title = "VoiceRhino is setting up"
+                text = (f"Downloading the speech model (about {spec.size_mb} MB, first time only); the caption "
+                        f"windows show progress. Meanwhile, drag them where you want them and press "
+                        f"{self.config.lock_hotkey} to lock them.")
+            else:
+                title = "VoiceRhino is running"
+                text = (f"Drag the caption windows where you want them, then press {self.config.lock_hotkey} "
+                        "to lock them (click-through). Right-click the CC tray icon for settings.")
+            self.tray.showMessage(title, text, app_icon(), 15000)
 
     def shutdown(self) -> None:
         self._stop_pipelines()
@@ -140,11 +150,14 @@ class Controller(QObject):
         except KeyError:
             return None
 
-    def _load_engine(self) -> None:
+    def _model_spec(self):
         try:
-            spec = get_model(self.config.asr.model)
+            return get_model(self.config.asr.model)
         except KeyError:
-            spec = get_model(DEFAULT_MODEL_ID)
+            return get_model(DEFAULT_MODEL_ID)
+
+    def _load_engine(self) -> None:
+        spec = self._model_spec()
         options = self._engine_options()
         live_spec = self._live_spec(spec)
         key = (spec.id, tuple(asdict(options).items()), live_spec.id if live_spec else None)
@@ -155,21 +168,27 @@ class Controller(QObject):
             return
         self._loading_key = key
         self._stop_pipelines()
-        self._set_status(f"Loading {spec.name}…", 60)
+        what = f"the speech model ({spec.name.split(' (')[0]})"
+        self._set_status(f"Loading {what}… Captions start when it's ready.", LOADING_SECONDS)
 
         def work() -> None:
             last = [0.0]
 
-            def progress_for(name: str):
+            def progress_for(what: str):
                 def progress(done: int, total: int) -> None:
-                    if time.monotonic() - last[0] > 0.5 and total:
+                    if not total:
+                        return
+                    if done >= total:  # unpacking and loading next: can take a minute on a slow PC
+                        self.signals.loading.emit(f"Setting up {what}… Captions start when it's ready.")
+                    elif time.monotonic() - last[0] > 0.5:
                         last[0] = time.monotonic()
-                        self.signals.status.emit(f"Downloading {name}: {done / total:.0%} of {total / 1e6:.0f} MB")
+                        self.signals.loading.emit(f"Downloading {what}, first time only: {done / total:.0%} "
+                                                  f"of {total / 1e6:.0f} MB. Captions start when it's done.")
                 return progress
 
             try:
                 ensure_download(VAD_MODELS["silero"])
-                engine = load_engine(spec, options, progress_for(spec.name))
+                engine = load_engine(spec, options, progress_for(what))
             except Exception as exc:
                 log.exception("loading %s failed", spec.id)
                 self.signals.engine_ready.emit(None, key, str(exc))
@@ -177,7 +196,8 @@ class Controller(QObject):
             live = None
             if live_spec is not None:
                 try:
-                    live = load_streaming_engine(live_spec, 1, progress_for(live_spec.name))
+                    live = load_streaming_engine(
+                        live_spec, 1, progress_for(f"the word-by-word model ({live_spec.name.split(' (')[0]})"))
                 except Exception as exc:  # captions still work without word-by-word live text
                     log.exception("loading %s failed", live_spec.id)
                     self.signals.status.emit(f"Word-by-word live text unavailable: {exc}")
@@ -235,7 +255,11 @@ class Controller(QObject):
             self._set_status("Audio problem — " + "; ".join(failed), 30)
         elif started:
             live = " + word-by-word" if self.live_engine is not None else ""
-            self._set_status(f"Listening to {', '.join(started)} · {self.engine.spec.name.split(' (')[0]}{live}")
+            text = f"Listening to {', '.join(started)} · {self.engine.spec.name.split(' (')[0]}{live}"
+            if self._first_run_hint:  # an empty window would otherwise look like nothing's working
+                self._set_status(f"Ready! {text}. Captions appear here when someone talks.", LOADING_SECONDS)
+            else:
+                self._set_status(text)
         else:
             self._set_status("No audio source enabled — open Settings › Audio", 30)
 
@@ -315,6 +339,10 @@ class Controller(QObject):
     def _on_utterance(self, utt: Utterance) -> None:
         # Captions only ever live in memory (TranscriptStore): nothing anyone says is written to
         # disk. A "save a transcript" option was removed on purpose (recording-consent laws).
+        if self._first_run_hint and utt.text:  # the first caption: the hint has done its job
+            self._first_run_hint = False
+            for w in self.windows.values():
+                w.show_status("", 0)
         for w in self.windows.values():
             if w.isVisible():
                 w.on_utterance(utt)
@@ -389,6 +417,11 @@ class Controller(QObject):
         self.windows[view.id].setVisible(visible)
         self._save_soon()
 
+    def set_view_warnings(self, window: OverlayWindow, on: bool) -> None:
+        window.view.show_warnings = on
+        window.update()
+        self._save_soon()
+
     def _view_names(self) -> dict[str, str]:
         names, counts = {}, {"caption": 0, "history": 0}
         for v in self.config.views:
@@ -442,6 +475,10 @@ class Controller(QObject):
         menu = QMenu()
         self._common_actions(menu)
         menu.addSeparator()
+        warnings = menu.addAction("Show audio warnings here")
+        warnings.setCheckable(True)
+        warnings.setChecked(window.view.show_warnings)
+        warnings.toggled.connect(lambda on: self.set_view_warnings(window, on))
         menu.addAction("Hide this window", lambda: self.set_view_visible(window.view, False))
         menu.addAction("Remove this window", lambda: self.remove_view(window))
         menu.exec(pos)
