@@ -1,0 +1,26 @@
+# Internal notes, research and tasks (local only)
+/internal/
+
+# Local scratch images
+/localvoiceimage*.png
+/*.zip
+
+# Affinity lock files and old logo drafts
+*~lock~
+*_old.png
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# Runtime data (models are downloaded on demand, never committed)
+/models/
+/logs/
+/tests/_out/
+*.wav

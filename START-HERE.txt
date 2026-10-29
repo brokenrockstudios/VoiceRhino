@@ -1,0 +1,40 @@
+VoiceRhino - live captions for Windows
+=======================================================
+
+1. Unzip this folder somewhere it can stay, e.g. C:\VoiceRhino
+
+2. Double-click run.bat
+   - The first time, it installs what it needs (uv + Python 3.12 + packages, a few
+     minutes), then the app downloads its speech model (~640 MB, progress is shown
+     on screen). Needs internet once; after that it starts in seconds.
+   - Windows may warn about a file from the internet: click "More info" -> "Run anyway"
+     (or "Run").
+
+3. A CC icon appears in the system tray (bottom right; it may hide under the ^ arrow).
+   Two windows with dashed borders appear: the CAPTION bar and the HISTORY window.
+   Drag them where you want them (drag the edges to resize), on any monitor.
+   Press Ctrl+Alt+C to LOCK them: borders disappear and clicks pass through to the game.
+   Press Ctrl+Alt+C again to unlock and move them.
+
+4. Choose what to caption: right-click the CC icon -> Settings -> Audio
+   - "Output device - what you hear": pick the device Discord plays through
+     (for example VOIPSpeakers), or
+   - "Single app": Discord.exe -> captions only Discord, no game sounds, or
+   - "Default output (all PC audio)" -> everything you would hear.
+   Click OK.
+
+5. Optional: right-click the CC icon -> "Start with Windows".
+
+Tips
+- Games: use borderless / windowed mode so the captions can show on top.
+- Missed something? The history window shows the last 60 seconds (adjustable in
+  Settings -> Windows); the mouse wheel scrolls back.
+- Who is talking: Settings -> Speakers (colors by voice; real Discord names need a
+  one-time setup, see docs\discord-setup.md).
+- Quiet voices are turned up automatically. If a caption window shows "... is very quiet",
+  turn the volume up (Discord's output volume, or Discord in the Windows Volume Mixer).
+  Settings -> Audio shows a meter of what VoiceRhino hears. If Discord is muted in the
+  Volume Mixer, "Single app" captions stop.
+- Everything runs on this PC (CPU only by default); no audio is sent anywhere.
+
+More details: README.md (open it with Notepad) and the docs folder.

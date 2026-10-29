@@ -1,0 +1,7 @@
+# Windows-native files keep CRLF in checkouts and in `git archive` zips.
+*.bat text eol=crlf
+*.txt text eol=crlf
+
+# Agent handoff notes stay out of the release zip.
+HANDOFF.md export-ignore
+CLAUDE.md export-ignore
