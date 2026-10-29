@@ -4,13 +4,13 @@
 
 # VoiceRhino
 
-Live captions. An accessibility tool for people who are deaf or hard of hearing
+Live captions. An accessibility tool for people who are deaf or hard-of-hearing
 (or who have auditory processing difficulties, or just need to read what's said),
-built first for deaf gamers: big click-through captions over the game, a scrollback
+built first for deaf and hard-of-hearing gamers: big click-through captions over the game, a scrollback
 window for anything missed, captions from any audio device or a single app (e.g. only
 Discord), and recognition that runs on the CPU so the GPU stays free for games.
 
-_Built in honor of a deaf gaming friend, and for everyone who wants to follow the conversation._
+_Built in honor of a hard-of-hearing gaming friend, and for everyone who wants to follow the conversation._
 
 <p align="center">
   <img src="docs/images/overlays.png" alt="Caption bar at the bottom of a game screen, a second caption window unlocked for moving at the top left, and the history window with speaker names and timestamps at the top right" width="800">
@@ -158,7 +158,7 @@ for English text from another language, use Settings → Translation or Whisper'
 | Moonshine Base / Tiny          | English                                               | CPU     | lightest, less accurate                                  |
 | SenseVoice Small               | Chinese, English, Japanese, Korean, Cantonese         | CPU     | very fast                                                |
 | Qwen3-ASR 0.6B                 | 30 languages incl. Spanish, Chinese, Japanese, Korean | CPU     | most accurate here for non-English; ~2.5× Parakeet's CPU |
-| Whisper Large v3 Turbo         | 99 languages                                          | GPU     | the well-known Whisper; needs `install-gpu.bat`         |
+| Whisper Large v3 Turbo         | 99 languages                                          | GPU     | the well-known Whisper; needs `install-gpu.bat`          |
 | Distil-Whisper Large v3.5      | English                                               | GPU     | needs `install-gpu.bat`                                  |
 | Whisper Medium / Large v3      | 99 languages, can translate → English                 | GPU     | set Task = Translate (Turbo can't translate)             |
 
@@ -320,18 +320,18 @@ owners and are used only to describe compatibility.
 VoiceRhino stands on other people's work, and depending on what you need, one of these may suit
 you better. Status and features are as of late 2026; check each project for its current state.
 
-| Tool | What it is | Good to know |
-| --- | --- | --- |
-| Windows 11 Live Captions | Built into Windows (Win+Ctrl+L), on-device, free | Follows the default output device only: no per-app capture, no history. [LiveCaptions-Translator](https://github.com/SakiRinn/LiveCaptions-Translator) adds an overlay, history and translation |
-| [CaptionsRush](https://captionsrush.com/) | Captions for gamers and Discord, made by a hard-of-hearing gamer | Closed source. A Discord bot hears each speaker separately, so names are exact |
-| [LocalVocal](https://github.com/royshil/obs-localvocal) | OBS plugin running Whisper locally | GPL-2.0, needs OBS. Its idea (detect speech, re-decode the open line, then finalize) inspired VoiceRhino's pipeline |
-| [OBS Closed Captioning](https://github.com/ratwithacompiler/OBS-captions-plugin) | OBS plugin with a caption preview window | GPL-2.0, needs OBS. Uses Google's cloud speech API, so audio leaves your PC |
-| [TMSpeech](https://github.com/jxlpzqc/TMSpeech) | Windows live captions on sherpa-onnx, the same engine family VoiceRhino uses | MIT, Chinese-meeting focus. A good proof that CPU-only captioning is light |
-| [Buzz](https://github.com/chidiwilliams/buzz) | Whisper transcription of recordings and live input | MIT. Built for files and meetings, not a game overlay; system audio needs a virtual cable |
-| [Vibe](https://github.com/thewh1teagle/vibe) | Offline Whisper transcription app | MIT. File-oriented rather than live overlays |
-| [Ava](https://ava.me) | Cloud captions in a floating box, with speaker ID and optional human captioners | Free and paid tiers; aimed at conversations and meetings |
-| Chrome Live Caption | Captions for audio played in Chrome | Only hears Chrome, not other apps or games |
-| Dragon and Windows Voice Access | Dictation and voice control: turn _your own_ speech into text or commands | A different job: they don't caption what other people say |
+| Tool                                                                             | What it is                                                                      | Good to know                                                                                                                                                                                    |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Windows 11 Live Captions                                                         | Built into Windows (Win+Ctrl+L), on-device, free                                | Follows the default output device only: no per-app capture, no history. [LiveCaptions-Translator](https://github.com/SakiRinn/LiveCaptions-Translator) adds an overlay, history and translation |
+| [CaptionsRush](https://captionsrush.com/)                                        | Captions for gamers and Discord, made by a hard-of-hearing gamer                | Closed source. A Discord bot hears each speaker separately, so names are exact                                                                                                                  |
+| [LocalVocal](https://github.com/royshil/obs-localvocal)                          | OBS plugin running Whisper locally                                              | GPL-2.0, needs OBS. Its idea (detect speech, re-decode the open line, then finalize) inspired VoiceRhino's pipeline                                                                             |
+| [OBS Closed Captioning](https://github.com/ratwithacompiler/OBS-captions-plugin) | OBS plugin with a caption preview window                                        | GPL-2.0, needs OBS. Uses Google's cloud speech API, so audio leaves your PC                                                                                                                     |
+| [TMSpeech](https://github.com/jxlpzqc/TMSpeech)                                  | Windows live captions on sherpa-onnx, the same engine family VoiceRhino uses    | MIT, Chinese-meeting focus. A good proof that CPU-only captioning is light                                                                                                                      |
+| [Buzz](https://github.com/chidiwilliams/buzz)                                    | Whisper transcription of recordings and live input                              | MIT. Built for files and meetings, not a game overlay; system audio needs a virtual cable                                                                                                       |
+| [Vibe](https://github.com/thewh1teagle/vibe)                                     | Offline Whisper transcription app                                               | MIT. File-oriented rather than live overlays                                                                                                                                                    |
+| [Ava](https://ava.me)                                                            | Cloud captions in a floating box, with speaker ID and optional human captioners | Free and paid tiers; aimed at conversations and meetings                                                                                                                                        |
+| Chrome Live Caption                                                              | Captions for audio played in Chrome                                             | Only hears Chrome, not other apps or games                                                                                                                                                      |
+| Dragon and Windows Voice Access                                                  | Dictation and voice control: turn _your own_ speech into text or commands       | A different job: they don't caption what other people say                                                                                                                                       |
 
 Listing here is not an endorsement or a claim of affiliation; names belong to their owners.
 
