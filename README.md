@@ -12,6 +12,12 @@ Discord), and recognition that runs on the CPU so the GPU stays free for games.
 
 _Built in honor of a deaf gaming friend, and for everyone who wants to follow the conversation._
 
+<p align="center">
+  <img src="docs/images/overlays.png" alt="Caption bar at the bottom of a game screen, a second caption window unlocked for moving at the top left, and the history window with speaker names and timestamps at the top right" width="800">
+</p>
+<p align="center"><sub>The caption bar (locked: click-through), a second caption window and the
+history window (unlocked: dashed frames, drag to move). Names come from voice colors or Discord.</sub></p>
+
 > **Captions, not a recorder.** VoiceRhino shows speech as text on your screen so you can
 > follow the conversation. It runs 100% on your PC, with no telemetry, and **never saves
 > what anyone says**: captions live in memory only and are gone when you quit. See
@@ -71,6 +77,30 @@ differently. Reports are welcome.
 | Free disk space from models you tried     | Settings → General → _Downloaded models_: sizes, and _Delete all unused_ (a deleted model downloads again if you pick it later)                             |
 | Who's talking (colors/names)              | Settings → Speakers: voice-based colors, or Discord names ([setup](docs/discord-setup.md))                                                                  |
 | Translate (e.g. Chinese → English)        | Settings → Translation: pick the language; its model downloads once and runs on your PC ([details](#translation)). Or a Whisper model with Task = Translate |
+
+### Settings
+
+Right-click the tray icon → **Settings…**
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/settings-audio.png" alt="Settings, Audio tab: Discord captured as a single app plus a microphone, with level meters"><br>
+      <b>Audio:</b> what to caption (a device, a single app like Discord, or a mic), with a meter of what VoiceRhino hears</td>
+    <td width="50%"><img src="docs/images/settings-windows.png" alt="Settings, Windows tab: font, colors, outline, opacity and which sources each caption window shows"><br>
+      <b>Windows:</b> font, colors, outline, opacity, lines shown, and which sources each window shows</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/settings-recognition.png" alt="Settings, Recognition tab: speech model, live text mode, CPU or GPU, language"><br>
+      <b>Recognition:</b> the speech model, live text mode, CPU or GPU, and language</td>
+    <td><img src="docs/images/settings-translation.png" alt="Settings, Translation tab: Chinese to English with Opus-MT"><br>
+      <b>Translation:</b> other languages into English, on your PC</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/settings-speakers.png" alt="Settings, Speakers tab: color speakers by voice, optional Discord names"><br>
+      <b>Speakers:</b> a color per voice, or Discord names</td>
+    <td></td>
+  </tr>
+</table>
 
 **Quiet audio** is turned up automatically (up to +24 dB; Settings → Audio shows a meter of
 what VoiceRhino hears). If voices stay too quiet even then, the caption windows show
@@ -313,6 +343,7 @@ uv run voicerhino --file tests/_out/conversation.wav   # demo with a WAV on loop
 uv run pytest                # tests (generate synthetic speech with Windows TTS)
 uv run python tools/bench.py parakeet-tdt-0.6b-v2-int8 fw-large-v3-turbo:cuda
 uv run python tools/bench.py parakeet-tdt-0.6b-v2-int8 --live nemotron-streaming-en-160ms-int8 --realtime
+uv run python tools/screenshot_readme.py   # re-render the README images in docs/images
 ```
 
 `bench.py` feeds audio as fast as it can by default, which leaves decode time out of the

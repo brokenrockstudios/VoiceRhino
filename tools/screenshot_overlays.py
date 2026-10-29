@@ -28,8 +28,8 @@ LINES = [
 ]
 
 
-def main(out: str) -> None:
-    app = QApplication(sys.argv)
+def main(out: str, warning: bool = True) -> None:
+    app = QApplication.instance() or QApplication(sys.argv)
     store = TranscriptStore()
     now = time.monotonic()
     for i, (key, name, text) in enumerate(LINES):
@@ -46,7 +46,8 @@ def main(out: str) -> None:
 
     caption = CaptionWindow(ViewConfig(x=150, y=650, w=1100, h=170), store)
     caption.set_locked(True)
-    caption.set_warning("⚠ Discord is very quiet (-58 dB): turn its volume up")
+    if warning:
+        caption.set_warning("⚠ Discord is very quiet (-58 dB): turn its volume up")
     history = HistoryWindow(ViewConfig.default_history(), store)
     history.view.x, history.view.y = 1060, 60
     history.apply_view(history.view)
