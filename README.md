@@ -71,7 +71,7 @@ differently. Reports are welcome.
 | Another caption window (2nd monitor)      | Tray → Windows → Add caption window                                                                                                                         |
 | See the last 30–60 s                      | The history window; set its length in Settings → Windows. Mouse wheel scrolls back (unlocked or not click-through)                                          |
 | Keep your own mic out of the big captions | Settings → Windows → select the caption window → _Captions from_ (shown when there are 2+ sources)                                                          |
-| Bigger text, colors, outline, opacity     | Settings → Windows                                                                                                                                          |
+| Bigger text, colors, outline, opacity     | Settings → Windows (background and text opacity each have a slider)                                                                                         |
 | Snappier or steadier captions             | Settings → Timing (live update interval, pause that ends a line, shortest speech)                                                                           |
 | Try another model                         | Settings → Recognition (downloads automatically)                                                                                                            |
 | Free disk space from models you tried     | Settings → General → _Downloaded models_: sizes, and _Delete all unused_ (a deleted model downloads again if you pick it later)                             |
@@ -87,7 +87,7 @@ Right-click the tray icon → **Settings…**
     <td width="50%"><img src="docs/images/settings-audio.png" alt="Settings, Audio tab: Discord captured as a single app plus a microphone, with level meters"><br>
       <b>Audio:</b> what to caption (a device, a single app like Discord, or a mic), with a meter of what VoiceRhino hears</td>
     <td width="50%"><img src="docs/images/settings-windows.png" alt="Settings, Windows tab: font, colors, outline, opacity and which sources each caption window shows"><br>
-      <b>Windows:</b> font, colors, outline, opacity, lines shown, and which sources each window shows</td>
+      <b>Windows:</b> font, colors, outline, background and text opacity, lines shown, and which sources each window shows</td>
   </tr>
   <tr>
     <td><img src="docs/images/settings-recognition.png" alt="Settings, Recognition tab: speech model, live text mode, CPU or GPU, language"><br>

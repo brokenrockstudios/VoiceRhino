@@ -86,3 +86,21 @@ def test_history_window_keeps_warning_up_unless_turned_off(monkeypatch):
     assert painted_warning(window, monkeypatch) == "⚠ Discord is very quiet"
     window.view.show_warnings = False
     assert painted_warning(window, monkeypatch) is None
+
+
+def max_alpha(window) -> int:
+    image = window.grab().toImage()
+    return max(image.pixelColor(x, y).alpha() for x in range(0, image.width(), 2)
+               for y in range(0, image.height(), 2))
+
+
+def test_text_opacity_fades_captions_and_outline_together():
+    alphas = {}
+    for opacity in (1.0, 0.5, "junk"):  # a hand-edited config can't make the text vanish or crash
+        view = ViewConfig(background_opacity=0.0, text_opacity=opacity, outline=3)
+        window = CaptionWindow(view, store_with_two_sources())
+        window.set_locked(True)  # no dashed frame or hints: only the text has any alpha
+        window._last_activity = time.monotonic()
+        alphas[opacity] = max_alpha(window)
+    assert alphas[1.0] >= 250 and alphas["junk"] == alphas[1.0]
+    assert 115 <= alphas[0.5] <= 140  # one fade over text and outline, not two stacked ones

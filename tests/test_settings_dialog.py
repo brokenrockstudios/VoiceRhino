@@ -712,3 +712,17 @@ def test_window_audio_warnings_choice():
     assert win.warnings_check.isChecked()
     win.view_list.setCurrentRow(0)
     assert not win.warnings_check.isChecked()
+
+
+def test_window_text_opacity():
+    dialog, emitted = make_dialog(AppConfig())
+    win = dialog.windows_tab
+    win.view_list.setCurrentRow(0)
+    assert win.text_opacity_slider.value() == 100 and win.text_opacity_label.text() == "100%"
+    assert win.text_opacity_slider.minimum() == 10  # never fully invisible
+    win.text_opacity_slider.setValue(60)
+    assert win.text_opacity_label.text() == "60%"
+    dialog.apply()
+    assert [v.text_opacity for v in emitted[-1].views] == [0.6, 1.0]
+    win.view_list.setCurrentRow(1)
+    assert win.text_opacity_label.text() == "100%"

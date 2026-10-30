@@ -1195,13 +1195,10 @@ class WindowsTab(_Tab):
         self.partial_color_button.colorChanged.connect(partial(self._set, "partial_color"))
         self.background_button = ColorButton("Background color")
         self.background_button.colorChanged.connect(partial(self._set, "background"))
-        self.opacity_slider = QSlider(Qt.Orientation.Horizontal)
-        self.opacity_slider.setRange(0, 100)
-        self.opacity_slider.setPageStep(10)
-        self.opacity_slider.setToolTip("0% = no background, only the text (and its outline)")
-        self.opacity_slider.valueChanged.connect(self._on_opacity_changed)
-        self.opacity_label = QLabel()
-        self.opacity_label.setMinimumWidth(self.opacity_label.fontMetrics().horizontalAdvance("100%") + 6)
+        self.opacity_slider, self.opacity_label = self._percent_slider(
+            "background_opacity", 0, "0% = no background, only the text (and its outline)")
+        self.text_opacity_slider, self.text_opacity_label = self._percent_slider(
+            "text_opacity", 10, "Below 100% the game shows through the text, its outline and the names")
         self.outline_spin = QSpinBox()
         self.outline_spin.setRange(0, 8)
         self.outline_spin.setSuffix(" px")
@@ -1255,6 +1252,7 @@ class WindowsTab(_Tab):
         form.addRow("Text outline:", _field(_row(_spin(self.outline_spin), stretch=True)))
         form.addRow("Background:", _field(_row(self.background_button, stretch=True)))
         form.addRow("Background opacity:", _field(_row(self.opacity_slider, 1, self.opacity_label)))
+        form.addRow("Text opacity:", _field(_row(self.text_opacity_slider, 1, self.text_opacity_label)))
         self._caption_fields = [
             _field(_row(_spin(self.lines_spin), stretch=True)),
             _field(_row(_spin(self.clear_after_spin), stretch=True)),
@@ -1332,6 +1330,7 @@ class WindowsTab(_Tab):
             self.partial_color_button.set_color(str(view.partial_color))
             self.background_button.set_color(str(view.background))
             self.opacity_slider.setValue(round(_float(view.background_opacity, d.background_opacity) * 100))
+            self.text_opacity_slider.setValue(round(_float(view.text_opacity, d.text_opacity) * 100))
             self.outline_spin.setValue(_int(view.outline, d.outline))
             self.lines_spin.setValue(_int(view.lines, d.lines))
             self.clear_after_spin.setValue(_float(view.clear_after, d.clear_after))
@@ -1340,7 +1339,9 @@ class WindowsTab(_Tab):
             self.speakers_check.setChecked(bool(view.show_speakers))
             self.warnings_check.setChecked(bool(view.show_warnings))
             self.click_through_check.setChecked(bool(view.click_through))
-        self._update_opacity_label()
+        for slider, label in ((self.opacity_slider, self.opacity_label),
+                              (self.text_opacity_slider, self.text_opacity_label)):
+            label.setText(f"{slider.value()}%")  # setValue doesn't signal when the value didn't change
         history = view.kind == "history"
         for field in self._caption_fields:
             self._form.setRowVisible(field, not history)
@@ -1434,12 +1435,21 @@ class WindowsTab(_Tab):
     def _on_font_changed(self, font: QFont) -> None:
         self._set("font_family", font.family())
 
-    def _on_opacity_changed(self, value: int) -> None:
-        self._update_opacity_label()
-        self._set("background_opacity", round(value / 100, 2))
+    def _percent_slider(self, name: str, minimum: int, tooltip: str) -> tuple[QSlider, QLabel]:
+        """A percent slider for view field `name` (stored as 0-1), with its value shown next to it."""
+        slider = QSlider(Qt.Orientation.Horizontal)
+        slider.setRange(minimum, 100)
+        slider.setPageStep(10)
+        slider.setToolTip(tooltip)
+        label = QLabel()
+        label.setMinimumWidth(label.fontMetrics().horizontalAdvance("100%") + 6)
 
-    def _update_opacity_label(self) -> None:
-        self.opacity_label.setText(f"{self.opacity_slider.value()}%")
+        def changed(value: int) -> None:
+            label.setText(f"{value}%")
+            self._set(name, round(value / 100, 2))
+
+        slider.valueChanged.connect(changed)
+        return slider, label
 
     def _on_screen_picked(self, index: int) -> None:
         view = self._current()

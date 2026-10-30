@@ -77,6 +77,7 @@ class ViewConfig:
     outline: int = 3  # text outline width in px, 0 = none
     background: str = "#000000"
     background_opacity: float = 0.45
+    text_opacity: float = 1.0  # text, outline and names together; 1 = solid
     click_through: bool = True  # when overlays are locked
     lines: int = 2  # caption: lines visible at once (roll-up)
     clear_after: float = 8.0  # caption: hide text after this many quiet seconds, 0 = never

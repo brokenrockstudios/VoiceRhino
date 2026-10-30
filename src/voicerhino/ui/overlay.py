@@ -15,7 +15,7 @@ import time
 
 from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import (QColor, QFont, QFontMetricsF, QGuiApplication, QPainter,
-                           QPainterPath, QPen, QTextDocument)
+                           QPainterPath, QPen, QPixmap, QTextDocument)
 from PySide6.QtWidgets import QWidget
 
 from ..config import ViewConfig
@@ -39,6 +39,14 @@ def _font(view: ViewConfig, bold: bool | None = None) -> QFont:
     font.setPixelSize(max(6, view.font_size))
     font.setBold(view.bold if bold is None else bold)
     return font
+
+
+def _text_opacity(view: ViewConfig) -> float:
+    """view.text_opacity, kept readable (10% at least) even if the config file was hand-edited."""
+    try:
+        return min(1.0, max(0.1, float(view.text_opacity)))
+    except (TypeError, ValueError):
+        return 1.0
 
 
 class OverlayWindow(QWidget):
@@ -321,6 +329,15 @@ class CaptionWindow(OverlayWindow):
         line_h = fm.lineSpacing()
         y = self.height() - pad - line_h * len(lines) + fm.ascent()
         outline = QPen(QColor(0, 0, 0, 230), v.outline * 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        opacity = _text_opacity(v)
+        target, layer = p, None
+        if opacity < 1:  # draw solid on a layer, then fade it as one, or the outline shows through the letters
+            ratio = self.devicePixelRatioF()
+            layer = QPixmap(round(self.width() * ratio), round(self.height() * ratio))
+            layer.setDevicePixelRatio(ratio)
+            layer.fill(Qt.transparent)
+            target = QPainter(layer)
+            target.setRenderHint(QPainter.Antialiasing)
         for line in lines:
             widths = [(lfm if is_label else fm).horizontalAdvance(t) for t, _, is_label in line]
             x = pad + max(0.0, (self.width() - 2 * pad - sum(widths)) / 2)
@@ -328,10 +345,14 @@ class CaptionWindow(OverlayWindow):
                 path = QPainterPath()
                 path.addText(QPointF(x, y), label_font if is_label else font, text.rstrip())
                 if v.outline > 0:
-                    p.strokePath(path, outline)
-                p.fillPath(path, QColor(color))
+                    target.strokePath(path, outline)
+                target.fillPath(path, QColor(color))
                 x += w
             y += line_h
+        if layer is not None:
+            target.end()
+            p.setOpacity(opacity)
+            p.drawPixmap(0, 0, layer)
 
 
 class HistoryWindow(OverlayWindow):
@@ -402,6 +423,7 @@ class HistoryWindow(OverlayWindow):
         p.save()
         p.setClipRect(QRectF(pad, top, width, avail))
         p.translate(pad, top + min(0.0, avail - doc_h) + self._scroll)
+        p.setOpacity(_text_opacity(v))
         self._doc.drawContents(p)
         p.restore()
         if self._scroll:

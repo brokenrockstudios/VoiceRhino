@@ -23,6 +23,9 @@ already listening.
   only along with captions, so it clears when they do; the history window still keeps it up.
   Each window can also hide it: Settings › Windows › _Show audio warnings_, or right-click
   the window while unlocked.
+- **Text opacity**: Settings › Windows has a _Text opacity_ slider next to _Background
+  opacity_, so the game can show through the captions. The text, its outline and the speaker
+  names fade together, down to 10%.
 - README: screenshots of the caption windows and the Settings tabs.
 
 ## 0.1.0 (2026-10-29)
