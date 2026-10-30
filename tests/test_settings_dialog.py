@@ -387,13 +387,16 @@ def test_windows_list_editing():
     win.text_color_button.choose("#FFFF00")
     win.clear_after_spin.setValue(0)
     win.lines_spin.setValue(3)
+    assert win.align_combo.currentData() == "center"
+    win.align_combo.setCurrentIndex(win.align_combo.findData("left"))
     win.click_through_check.setChecked(False)
     win.view_list.item(2).setCheckState(Qt.CheckState.Unchecked)
     dialog.apply()
     views = emitted[-1].views
     new = views[1]
     assert (new.bold, new.background_opacity, new.outline, new.text_color) == (False, 0.8, 0, "#FFFF00")
-    assert (new.clear_after, new.lines, new.click_through) == (0.0, 3, False)
+    assert (new.clear_after, new.lines, new.click_through, new.align) == (0.0, 3, False, "left")
+    assert views[0].align == "center"
     assert views[2].visible is False and views[0].visible is True
 
     # Caption-only and history-only fields follow the selected window's kind.

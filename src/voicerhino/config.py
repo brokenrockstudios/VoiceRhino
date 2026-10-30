@@ -82,6 +82,7 @@ class ViewConfig:
     click_through: bool = True  # when overlays are locked
     lines: int = 2  # caption: lines visible at once (roll-up)
     clear_after: float = 8.0  # caption: hide text after this many quiet seconds, 0 = never
+    align: str = "center"  # caption: "center" or "left" (new words append without shifting the line)
     history_seconds: int = 60  # history: how far back to show
     show_timestamps: bool = True  # history
     show_source_number: bool = False  # history: 1, 2, ... (order of Settings › Audio) before each line

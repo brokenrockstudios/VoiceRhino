@@ -365,7 +365,9 @@ class CaptionWindow(OverlayWindow):
             target.setRenderHint(QPainter.Antialiasing)
         for line in lines:
             widths = [(lfm if is_label else fm).horizontalAdvance(t) for t, _, is_label in line]
-            x = pad + max(0.0, (self.width() - 2 * pad - sum(widths)) / 2)
+            x = pad
+            if v.align != "left":  # centered lines shift left as words are added; left ones stay put
+                x += max(0.0, (self.width() - 2 * pad - sum(widths)) / 2)
             for (text, color, is_label), w in zip(line, widths):
                 path = QPainterPath()
                 path.addText(QPointF(x, y), label_font if is_label else font, text.rstrip())

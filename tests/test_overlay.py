@@ -154,3 +154,22 @@ def test_caption_outline_uses_its_color():
                    if (c := image.pixelColor(x, y)).alpha() > 150 and c.red() > 180 and c.green() < 80)
 
     assert outline_pixels("#FF0000") > 100 and outline_pixels("#000000") == 0
+
+
+def test_left_aligned_captions_keep_words_in_place():
+    def first_word_x(align: str, words: str) -> int:
+        """Leftmost x with text on it, for one caption line of `words`."""
+        store = TranscriptStore()
+        now = time.monotonic()
+        store.push(Utterance(1, "Default output", words, now - 1, now, False, source_id="out"))
+        view = ViewConfig(background_opacity=0.0, outline=0, align=align, w=1000)
+        window = CaptionWindow(view, store)
+        window.set_locked(True)
+        window._last_activity = time.monotonic()
+        image = window.grab().toImage()
+        return min(x for x in range(image.width()) for y in range(image.height())
+                   if image.pixelColor(x, y).alpha() > 100)
+
+    # Centered, the line's start moves left as words come in; left-aligned, it stays put near the edge.
+    assert first_word_x("center", "hello there friend") < first_word_x("center", "hello") - 50
+    assert first_word_x("left", "hello there friend") == first_word_x("left", "hello") < 40

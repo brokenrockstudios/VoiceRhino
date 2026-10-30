@@ -1250,6 +1250,12 @@ class WindowsTab(_Tab):
         self.clear_after_spin.setSpecialValueText("Never")
         self.clear_after_spin.setToolTip("Hide the captions after this many quiet seconds")
         self.clear_after_spin.valueChanged.connect(partial(self._set, "clear_after"))
+        self.align_combo = QComboBox()
+        self.align_combo.addItem("Center", "center")
+        self.align_combo.addItem("Left", "left")
+        self.align_combo.setToolTip("Left: new words are added at the end of the line and the words "
+                                    "already shown stay where they are. Center: the line re-centers as it grows.")
+        self.align_combo.currentIndexChanged.connect(lambda _: self._set("align", self.align_combo.currentData()))
         self.history_seconds_spin = QSpinBox()
         self.history_seconds_spin.setRange(10, 900)
         self.history_seconds_spin.setSingleStep(10)
@@ -1297,6 +1303,7 @@ class WindowsTab(_Tab):
             _field(_row(_spin(self.outline_spin), self.outline_color_button, stretch=True)),
             _field(_row(_spin(self.lines_spin), stretch=True)),
             _field(_row(_spin(self.clear_after_spin), stretch=True)),
+            _field(_row(self.align_combo, stretch=True)),
         ]
         form.addRow("Text outline:", self._caption_fields[0])
         form.addRow("Text opacity:", _field(_row(self.text_opacity_slider, 1, self.text_opacity_label)))
@@ -1304,6 +1311,7 @@ class WindowsTab(_Tab):
         form.addRow("Background opacity:", _field(_row(self.opacity_slider, 1, self.opacity_label)))
         form.addRow("Lines shown:", self._caption_fields[1])
         form.addRow("Clear after:", self._caption_fields[2])
+        form.addRow("Alignment:", self._caption_fields[3])
         self._history_fields = [
             _field(_row(_spin(self.history_seconds_spin), stretch=True),
                    warning="Ask everyone you're talking with before you use the history window."),
@@ -1390,6 +1398,7 @@ class WindowsTab(_Tab):
             self.outline_color_button.set_color(str(view.outline_color))
             self.lines_spin.setValue(_int(view.lines, d.lines))
             self.clear_after_spin.setValue(_float(view.clear_after, d.clear_after))
+            self.align_combo.setCurrentIndex(max(0, self.align_combo.findData(view.align)))
             self.history_seconds_spin.setValue(_int(view.history_seconds, d.history_seconds))
             self.timestamps_check.setChecked(bool(view.show_timestamps))
             self.source_number_check.setChecked(bool(view.show_source_number))
