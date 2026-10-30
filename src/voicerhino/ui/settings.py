@@ -15,10 +15,12 @@ from __future__ import annotations
 
 import copy
 import dataclasses
+import html
 import importlib.util
 import logging
 import os
 import re
+import threading
 from contextlib import contextmanager
 from functools import partial
 from pathlib import Path
@@ -86,6 +88,7 @@ from ..audio.gain import SILENCE_DB
 from ..config import AppConfig, SourceConfig, ViewConfig
 from ..pipeline import QUIET_DB, PipelineSettings, SourceLevel
 from ..resources import ResourceMonitor, describe
+from ..updates import RELEASES_PAGE, Release, is_newer, latest_release
 from ..translate import is_model_downloaded
 from ..translate.catalog import TRANSLATION_MODELS, TranslationModel
 
@@ -458,6 +461,8 @@ def _combo(editable: bool = False) -> QComboBox:
 
 
 def _form() -> QFormLayout:
+    # Rows without a label: addRow(QLabel(), field), not addRow("", field). Qt then skips
+    # height-for-width and gives a wrapped hint two lines' height for one, padding it top and bottom.
     form = QFormLayout()
     form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
     form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.DontWrapRows)
@@ -1228,8 +1233,11 @@ class WindowsTab(_Tab):
         self.outline_spin.setRange(0, 8)
         self.outline_spin.setSuffix(" px")
         self.outline_spin.setSpecialValueText("None")
-        self.outline_spin.setToolTip("Dark outline around letters; keeps text readable over bright game scenes")
+        self.outline_spin.setToolTip("Outline around letters; a dark one keeps text readable over bright game scenes")
         self.outline_spin.valueChanged.connect(partial(self._set, "outline"))
+        self.outline_spin.valueChanged.connect(lambda width: self.outline_color_button.setEnabled(width > 0))
+        self.outline_color_button = ColorButton("Outline color")
+        self.outline_color_button.colorChanged.connect(partial(self._set, "outline_color"))
         self.lines_spin = QSpinBox()
         self.lines_spin.setRange(1, 6)
         self.lines_spin.setToolTip("Lines visible at once; older lines roll up and away")
@@ -1271,23 +1279,23 @@ class WindowsTab(_Tab):
 
         form = _form()
         self._form = form
-        form.addRow("Move to screen:", _field(self.screen_combo, self.placement_label))
         self._sources_field = _field(self.sources_box, "Untick a source to leave it out of this window, e.g. "
                                      "your own microphone in the big captions but not in the history.")
         form.addRow("Captions from:", self._sources_field)
         form.addRow("Font:", _field(_row(self.font_combo, 1, _spin(self.font_size_spin), self.bold_check)))
         form.addRow("Text color:", _field(_row(self.text_color_button, stretch=True)))
         form.addRow("Live text color:", _field(_row(self.partial_color_button, stretch=True)))
-        form.addRow("Text outline:", _field(_row(_spin(self.outline_spin), stretch=True)))
-        form.addRow("Background:", _field(_row(self.background_button, stretch=True)))
-        form.addRow("Background opacity:", _field(_row(self.opacity_slider, 1, self.opacity_label)))
-        form.addRow("Text opacity:", _field(_row(self.text_opacity_slider, 1, self.text_opacity_label)))
-        self._caption_fields = [
+        self._caption_fields = [  # history windows draw no outline and don't roll up
+            _field(_row(_spin(self.outline_spin), self.outline_color_button, stretch=True)),
             _field(_row(_spin(self.lines_spin), stretch=True)),
             _field(_row(_spin(self.clear_after_spin), stretch=True)),
         ]
-        form.addRow("Lines shown:", self._caption_fields[0])
-        form.addRow("Clear after:", self._caption_fields[1])
+        form.addRow("Text outline:", self._caption_fields[0])
+        form.addRow("Text opacity:", _field(_row(self.text_opacity_slider, 1, self.text_opacity_label)))
+        form.addRow("Background:", _field(_row(self.background_button, stretch=True)))
+        form.addRow("Background opacity:", _field(_row(self.opacity_slider, 1, self.opacity_label)))
+        form.addRow("Lines shown:", self._caption_fields[1])
+        form.addRow("Clear after:", self._caption_fields[2])
         self._history_fields = [
             _field(_row(_spin(self.history_seconds_spin), stretch=True),
                    "How far back the history window goes; older lines disappear. It's only shown "
@@ -1302,12 +1310,14 @@ class WindowsTab(_Tab):
                    "(Settings › General has averages)."),
         ]
         form.addRow("History length:", self._history_fields[0])
-        form.addRow("", self._history_fields[1])
-        form.addRow("", self.speakers_check)
-        form.addRow("", _field(self.warnings_check,
-                               "E.g. '⚠ Discord is very quiet: turn its volume up'. A caption window shows it "
-                               "only along with captions; the history window keeps it up."))
-        form.addRow("", self.click_through_check)
+        for field in self._history_fields[1:]:
+            form.addRow(QLabel(), field)
+        form.addRow(QLabel(), self.speakers_check)
+        form.addRow(QLabel(), _field(self.warnings_check,
+                                     "E.g. '⚠ Discord is very quiet: turn its volume up'. A caption window shows "
+                                     "it only along with captions; the history window keeps it up."))
+        form.addRow(QLabel(), self.click_through_check)
+        form.addRow("Move to screen:", _field(self.screen_combo, self.placement_label))
 
         self.editor = QWidget()
         self.editor.setLayout(form)
@@ -1367,6 +1377,7 @@ class WindowsTab(_Tab):
             self.opacity_slider.setValue(round(_float(view.background_opacity, d.background_opacity) * 100))
             self.text_opacity_slider.setValue(round(_float(view.text_opacity, d.text_opacity) * 100))
             self.outline_spin.setValue(_int(view.outline, d.outline))
+            self.outline_color_button.set_color(str(view.outline_color))
             self.lines_spin.setValue(_int(view.lines, d.lines))
             self.clear_after_spin.setValue(_float(view.clear_after, d.clear_after))
             self.history_seconds_spin.setValue(_int(view.history_seconds, d.history_seconds))
@@ -1376,6 +1387,7 @@ class WindowsTab(_Tab):
             self.speakers_check.setChecked(bool(view.show_speakers))
             self.warnings_check.setChecked(bool(view.show_warnings))
             self.click_through_check.setChecked(bool(view.click_through))
+        self.outline_color_button.setEnabled(self.outline_spin.value() > 0)  # setValue may not have signalled
         for slider, label in ((self.opacity_slider, self.opacity_label),
                               (self.text_opacity_slider, self.text_opacity_label)):
             label.setText(f"{slider.value()}%")  # setValue doesn't signal when the value didn't change
@@ -1547,7 +1559,7 @@ class SpeakersTab(_Tab):
         discord_form.addRow("Client ID:", _field(self.client_id_edit))
         discord_form.addRow("Client secret:", _field(_row(self.secret_edit, 1, self.show_secret_button),
                                                      "Stays on this PC, in VoiceRhino's config file."))
-        discord_form.addRow("", _field(_row(self.help_button, stretch=True)))
+        discord_form.addRow(QLabel(), _field(_row(self.help_button, stretch=True)))
         discord.setLayout(discord_form)
 
         layout = QVBoxLayout(self)
@@ -1646,7 +1658,7 @@ class TranslationTab(_Tab):
 
         form = _form()
         form.addRow("Translate:", model_field)
-        form.addRow("", _field(self.foreign_check,
+        form.addRow(QLabel(), _field(self.foreign_check,
                                "Each line's language is guessed from its letters and common words. Untick to "
                                "translate every line, e.g. if lines in that language are being skipped."))
         privacy = Hint("Translation runs on this PC. The model downloads once (from Hugging Face; Hy-MT2 "
@@ -1737,8 +1749,19 @@ class TranslationTab(_Tab):
 
 
 class GeneralTab(_Tab):
+    _update_checked = Signal(object)  # Release, or the exception that stopped the check
+
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
+        self.update_button = QPushButton("Check for updates")
+        self.update_button.setToolTip("Asks GitHub for the latest release. Only when you click: "
+                                      "VoiceRhino never checks by itself.")
+        self.update_button.clicked.connect(self.check_for_updates)
+        self.update_label = QLabel()
+        self.update_label.setWordWrap(True)
+        self.update_label.setOpenExternalLinks(True)
+        self.update_label.setVisible(False)
+        self._update_checked.connect(self._show_update)
         self.captions_check = QCheckBox("On")
         self.captions_check.setToolTip("Turn live captioning on or off")
         self.captions_check.toggled.connect(partial(self._set, "captions_enabled"))
@@ -1787,7 +1810,8 @@ class GeneralTab(_Tab):
             "are click-through; unlocked ones can be dragged and resized. Include Ctrl, Alt or "
             "Shift so it doesn't fire while typing."))
         form.addRow("Folders:", _field(_row(self.config_button, self.log_button, stretch=True)))
-        form.addRow("Version:", QLabel(f"VoiceRhino {__version__}"))
+        form.addRow("Version:", _field(_row(QLabel(f"VoiceRhino {__version__}"), self.update_button, stretch=True),
+                                       self.update_label))
         self.resources_label = QLabel()
         self.resources_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.resources_hint = Hint()
@@ -1827,6 +1851,38 @@ class GeneralTab(_Tab):
     def hideEvent(self, event) -> None:
         super().hideEvent(event)
         self._resource_timer.stop()
+
+    # -- updates --
+
+    def check_for_updates(self) -> None:
+        self.update_button.setEnabled(False)
+        self.update_label.setText("Checking GitHub…")
+        self.update_label.setVisible(True)
+
+        def work() -> None:
+            try:
+                result: object = latest_release()
+            except Exception as exc:
+                log.info("update check failed: %s", exc)
+                result = exc
+            try:
+                self._update_checked.emit(result)
+            except RuntimeError:  # the dialog was closed meanwhile
+                pass
+
+        threading.Thread(target=work, name="update-check", daemon=True).start()
+
+    def _show_update(self, result: object) -> None:
+        self.update_button.setEnabled(True)
+        if isinstance(result, Release) and is_newer(result.version):
+            self.update_label.setText(
+                f'VoiceRhino {result.version} is out: <a href="{html.escape(result.url)}">open the download '
+                "page</a>. Unzip it into a new folder and run run.bat there; your settings and models are kept.")
+        elif isinstance(result, Release):
+            self.update_label.setText(f"You have the latest version ({result.version}).")
+        else:
+            self.update_label.setText(f"Couldn't check ({html.escape(str(result))}). The "
+                                      f'<a href="{RELEASES_PAGE}">Releases page</a> lists every version.')
 
     # -- resources --
 

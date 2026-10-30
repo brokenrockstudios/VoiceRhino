@@ -142,3 +142,16 @@ def test_history_resource_line_sits_above_the_warning(monkeypatch):
     caption = CaptionWindow(ViewConfig(show_resources=True), TranscriptStore())
     caption.set_resources("CPU 0.5 cores")
     assert caption._shown_resources() is None  # history windows only
+
+
+def test_caption_outline_uses_its_color():
+    def outline_pixels(color: str) -> int:
+        view = ViewConfig(background_opacity=0.0, outline=4, outline_color=color, text_color="#FFFFFF")
+        window = CaptionWindow(view, store_with_two_sources())
+        window.set_locked(True)
+        window._last_activity = time.monotonic()
+        image = window.grab().toImage()
+        return sum(1 for x in range(0, image.width(), 2) for y in range(0, image.height(), 2)
+                   if (c := image.pixelColor(x, y)).alpha() > 150 and c.red() > 180 and c.green() < 80)
+
+    assert outline_pixels("#FF0000") > 100 and outline_pixels("#000000") == 0

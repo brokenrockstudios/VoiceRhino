@@ -47,6 +47,14 @@ history window (unlocked: dashed frames, drag to move). Names come from voice co
       can leave sources out (Settings → Windows → _Captions from_), e.g. your own microphone in
       the history but not in the big captions.
 
+### Updating
+
+Settings → General → **Check for updates** asks GitHub whether there's a newer release and links
+to its page (VoiceRhino never checks by itself). To update, download the new zip, unzip it into a
+new folder (or delete the old one first) and run `run.bat` there. Your settings and downloaded
+models live outside the VoiceRhino folder, so they carry over; the first run installs any new
+packages.
+
 ## Requirements and performance
 
 - **Windows 10 or 11, 64-bit.** Single-app capture (e.g. only Discord) needs Windows 11 or
@@ -250,6 +258,8 @@ endorsed by any of these projects or companies.
     - _Optional, off by default:_ Discord speaker names. VoiceRhino talks to the Discord app
       on your PC, and to discord.com only to sign in and renew that sign-in
       ([setup](docs/discord-setup.md)). No caption text is sent.
+    - _Only when you click it:_ Settings → General → _Check for updates_ asks GitHub's API for
+      the latest release's version number. Nothing about you or your captions is sent.
 - **What's kept on disk:** your settings, the downloaded models and a technical log (status
   and errors, never caption text). Captions themselves live in memory only and are gone when
   you quit; there is no option to save them.

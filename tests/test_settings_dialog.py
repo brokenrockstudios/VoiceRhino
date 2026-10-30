@@ -26,6 +26,7 @@ from voicerhino.config import AppConfig, SourceConfig, ViewConfig
 from voicerhino.paths import models_dir
 from voicerhino.pipeline import PipelineSettings, SourceLevel
 from voicerhino.resources import ResourceMonitor, Usage
+from voicerhino.updates import Release
 from voicerhino.ui import settings
 from voicerhino.ui.settings import LevelMeter, SettingsDialog, parse_language, place_view
 
@@ -757,6 +758,7 @@ def test_window_source_number_choice():
     win = dialog.windows_tab
     dialog.tabs.setCurrentWidget(win)
     win.view_list.setCurrentRow(1)  # history
+    assert win._form.isRowVisible(win._history_fields[2])
     assert not win.source_number_check.isChecked()
     win.source_number_check.setChecked(True)
     dialog.apply()
@@ -786,8 +788,70 @@ def test_window_resources_choice():
     win = dialog.windows_tab
     dialog.tabs.setCurrentWidget(win)
     win.view_list.setCurrentRow(1)  # history
+    assert win._form.isRowVisible(win._history_fields[3])
     win.resources_check.setChecked(True)
     dialog.apply()
     assert [v.show_resources for v in emitted[-1].views] == [False, True]
     win.view_list.setCurrentRow(0)
     assert not win._form.isRowVisible(win._history_fields[3])
+
+
+def test_wrapped_hints_get_just_the_height_they_need():
+    """Rows without a label used to get two lines' height for a one-line hint (padding around it)."""
+    dialog, _ = make_dialog(AppConfig())
+    dialog.resize(1400, 900)
+    dialog.show()
+    win = dialog.windows_tab
+    dialog.tabs.setCurrentWidget(win)
+    win.view_list.setCurrentRow(1)  # history: its checkboxes with hints
+    APP.processEvents()
+    for field in win._history_fields[2:]:
+        assert field.height() == field.heightForWidth(field.width())
+    dialog.close()
+
+
+@pytest.mark.parametrize("result, expected", [
+    (Release("99.0.0", "https://example.com/release"), "VoiceRhino 99.0.0 is out"),
+    (Release(voicerhino.__version__, "https://example.com/release"), "You have the latest version"),
+    (OSError("no network"), "Couldn't check (no network)"),
+])
+def test_check_for_updates(monkeypatch, result, expected):
+    def fake_latest():
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    monkeypatch.setattr(settings, "latest_release", fake_latest)
+    dialog, _ = make_dialog(AppConfig())
+    general = dialog.general_tab
+    assert general.update_label.isHidden()  # nothing is checked until asked
+    general.check_for_updates()
+    assert not general.update_button.isEnabled()
+    deadline = time.monotonic() + 5
+    while not general.update_button.isEnabled() and time.monotonic() < deadline:
+        APP.processEvents()
+        time.sleep(0.01)
+    assert expected in general.update_label.text()
+    if isinstance(result, Release) and "is out" in expected:
+        assert 'href="https://example.com/release"' in general.update_label.text()
+
+
+def test_outline_color_and_row_order():
+    dialog, emitted = make_dialog(AppConfig())
+    win = dialog.windows_tab
+    dialog.tabs.setCurrentWidget(win)
+    win.view_list.setCurrentRow(0)  # caption window
+    assert win.outline_color_button.color() == "#000000" and win.outline_color_button.isEnabled()
+    win.outline_color_button.choose("#3355FF")
+    win.outline_spin.setValue(0)
+    assert not win.outline_color_button.isEnabled()  # no outline: nothing to color
+    win.outline_spin.setValue(2)
+    dialog.apply()
+    assert emitted[-1].views[0].outline_color.upper() == "#3355FF"
+    labels = [win._form.itemAt(row, win._form.ItemRole.LabelRole).widget().text()
+              for row in range(win._form.rowCount())]
+    assert labels.index("Text opacity:") == labels.index("Text outline:") + 1
+    assert labels.index("Background:") == labels.index("Text opacity:") + 1
+    assert labels[-1] == "Move to screen:"
+    win.view_list.setCurrentRow(1)  # history windows draw no outline
+    assert not win._form.isRowVisible(win._caption_fields[0])

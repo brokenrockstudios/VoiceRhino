@@ -35,6 +35,13 @@ already listening.
   can show the same as one line at the top (Settings › Windows › _Show VoiceRhino's CPU and
   memory use_), to check whether it gets in the way of a game. It counts the speech models and
   the Hy-MT2 translation helper too, like Task Manager.
+- **Check for updates** (Settings › General): asks GitHub for the latest release and links to
+  its download page. Only when you click it; VoiceRhino never checks by itself.
+- **Outline color** for caption windows, next to the outline width (black by default).
+- Settings › Windows reads better: _Text opacity_ sits with the text settings, before the
+  background ones; _Move to screen_ moved to the bottom; the outline, which history windows
+  don't draw, only shows for caption windows; and hints under checkboxes no longer have a gap
+  around them.
 - README: screenshots of the caption windows and the Settings tabs.
 
 ## 0.1.0 (2026-10-29)

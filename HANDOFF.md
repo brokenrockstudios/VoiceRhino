@@ -34,6 +34,7 @@ src/voicerhino/
   paths.py        config/models/logs dirs (env overrides VOICERHINO_*)
   pipeline.py     CaptionProcessor (pure, sample-clocked) + CaptionPipeline (thread, resample, gap fill)
   resources.py    own CPU/RAM (psutil) + GPU (Windows PDH counters) use, sampled every 2 s; 1/5 min averages
+  updates.py      manual "Check for updates": GitHub latest-release tag vs __version__ (never automatic)
   transcript.py   Utterance + TranscriptStore (finals + live partial per source; listeners)
   audio/          AudioSource base, devices, wasapi (PyAudioWPatch), process_loopback (ctypes COM),
                   app_source (follow an exe), file_source, gain (AutoGain, levels)

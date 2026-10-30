@@ -353,7 +353,7 @@ class CaptionWindow(OverlayWindow):
         fm, lfm = QFontMetricsF(font), QFontMetricsF(label_font)
         line_h = fm.lineSpacing()
         y = self.height() - pad - line_h * len(lines) + fm.ascent()
-        outline = QPen(QColor(0, 0, 0, 230), v.outline * 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        outline = QPen(_color(v.outline_color, 230 / 255), v.outline * 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
         opacity = _text_opacity(v)
         target, layer = p, None
         if opacity < 1:  # draw solid on a layer, then fade it as one, or the outline shows through the letters

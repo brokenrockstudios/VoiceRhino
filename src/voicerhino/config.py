@@ -75,6 +75,7 @@ class ViewConfig:
     text_color: str = "#FFFFFF"
     partial_color: str = "#D0D0D0"  # the still-changing live words
     outline: int = 3  # text outline width in px, 0 = none
+    outline_color: str = "#000000"  # caption windows; drawn at 90% so a bright game still softens it
     background: str = "#000000"
     background_opacity: float = 0.45
     text_opacity: float = 1.0  # text, outline and names together; 1 = solid
