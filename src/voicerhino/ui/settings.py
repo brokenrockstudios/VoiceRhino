@@ -1349,7 +1349,17 @@ class WindowsTab(_Tab):
         return self._cfg.views[row] if 0 <= row < len(self._cfg.views) else None
 
     def _load(self) -> None:
-        self._rebuild(self.view_list.currentRow())
+        current = self._current()
+        row = self.view_list.currentRow()
+        self._group_views()
+        self._rebuild(self._row_of(current.id) if current is not None else row)
+
+    def _group_views(self) -> None:
+        """Caption windows first, then history windows, each kind in the order it was added."""
+        self._cfg.views.sort(key=lambda v: v.kind == "history")
+
+    def _row_of(self, view_id: str) -> int:
+        return next((i for i, v in enumerate(self._cfg.views) if v.id == view_id), 0)
 
     def _rebuild(self, row: int) -> None:
         with self._quiet():
@@ -1461,7 +1471,8 @@ class WindowsTab(_Tab):
 
     def _add(self, view: ViewConfig) -> None:
         self._cfg.views.append(view)
-        self._rebuild(len(self._cfg.views) - 1)
+        self._group_views()
+        self._rebuild(self._row_of(view.id))
 
     def _on_remove(self) -> None:
         row = self.view_list.currentRow()

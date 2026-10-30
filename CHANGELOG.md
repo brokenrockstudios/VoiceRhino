@@ -10,6 +10,8 @@ What changed in each VoiceRhino release. Download releases from the
   appeared and the tray kept saying it was retrying. If the Developer Portal app has no
   redirect, the status now says to add `http://localhost` under OAuth2 › Redirects instead of
   retrying forever.
+- Settings › Windows lists all caption windows first, then all history windows, instead of
+  in the order they were added.
 - Settings opens a little wider, so the history window's "ask everyone" warning fits on one
   line.
 

@@ -378,7 +378,8 @@ def test_windows_list_editing():
     win = dialog.windows_tab
     win.add_caption_button.click()
     titles = [win.view_list.item(i).text() for i in range(win.view_list.count())]
-    assert titles == ["Caption window 1", "History window 1", "Caption window 2"]
+    assert titles == ["Caption window 1", "Caption window 2", "History window 1"]  # kinds stay together
+    assert win.view_list.currentRow() == 1  # the new window
     win.bold_check.setChecked(False)
     win.opacity_slider.setValue(80)
     assert win.opacity_label.text() == "80%"
@@ -387,25 +388,44 @@ def test_windows_list_editing():
     win.clear_after_spin.setValue(0)
     win.lines_spin.setValue(3)
     win.click_through_check.setChecked(False)
-    win.view_list.item(1).setCheckState(Qt.CheckState.Unchecked)
+    win.view_list.item(2).setCheckState(Qt.CheckState.Unchecked)
     dialog.apply()
     views = emitted[-1].views
-    new = views[2]
+    new = views[1]
     assert (new.bold, new.background_opacity, new.outline, new.text_color) == (False, 0.8, 0, "#FFFF00")
     assert (new.clear_after, new.lines, new.click_through) == (0.0, 3, False)
-    assert views[1].visible is False and views[0].visible is True
+    assert views[2].visible is False and views[0].visible is True
 
     # Caption-only and history-only fields follow the selected window's kind.
     form = win._form
-    win.view_list.setCurrentRow(1)
+    win.view_list.setCurrentRow(2)
     assert form.isRowVisible(win._history_fields[0]) and not form.isRowVisible(win._caption_fields[0])
     win.history_seconds_spin.setValue(120)
     win.timestamps_check.setChecked(False)
-    win.view_list.setCurrentRow(2)
+    win.view_list.setCurrentRow(1)
     win.remove_button.click()
     dialog.apply()
     views = emitted[-1].views
     assert len(views) == 2 and views[1].history_seconds == 120 and views[1].show_timestamps is False
+
+
+def test_windows_list_keeps_caption_windows_first():
+    views = [ViewConfig(), ViewConfig.default_history(), ViewConfig(), ViewConfig.default_history(), ViewConfig()]
+    ids = [v.id for v in views]
+    dialog, emitted = make_dialog(AppConfig(views=views))
+    win = dialog.windows_tab
+    titles = [win.view_list.item(i).text() for i in range(win.view_list.count())]
+    assert titles == ["Caption window 1", "Caption window 2", "Caption window 3",
+                      "History window 1", "History window 2"]
+    win.add_history_button.click()
+    assert win.view_list.currentRow() == 5
+    win.add_caption_button.click()
+    assert win.view_list.currentRow() == 3 and win.view_list.currentItem().text() == "Caption window 4"
+    dialog.apply()
+    saved = emitted[-1].views
+    assert [v.kind for v in saved] == ["caption"] * 4 + ["history"] * 3
+    assert [v.id for v in saved[:3]] == [ids[0], ids[2], ids[4]]  # each kind keeps its order
+    assert [v.id for v in saved[4:6]] == [ids[1], ids[3]]
 
 
 def test_place_view_on_a_screen_area():
