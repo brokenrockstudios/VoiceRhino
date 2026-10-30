@@ -857,8 +857,9 @@ class DiscordSpeakingClient:
         args: dict[str, Any] = {
             "client_id": self.client_id,
             "scopes": list(self.scopes),
-            # Reported Oct 2026: AUTHORIZE without redirect_uri fails with error 5000.
-            "redirect_uri": self.redirect_uri,
+            # No redirect_uri: Discord refuses it here ("Redirect URI cannot be used in the RPC
+            # OAuth2 Authorization flow") and uses the app's registered redirect instead, which
+            # the token exchange must then repeat.
             # Skip the popup when this app was already approved with these scopes
             # (first-time approval still shows it).
             "prompt": "none",
@@ -880,6 +881,8 @@ class DiscordSpeakingClient:
                     raise _Fatal(MSG_NOT_ALLOWED) from None
                 if exc.code == ERR_INVALID_CLIENTID:
                     raise _Fatal(MSG_BAD_CLIENT_ID) from None
+                if "redirect" in text:  # e.g. no redirect registered in the portal
+                    raise _Fatal(self._redirect_message()) from None
                 raise _Retry(
                     f"Discord authorization failed: {exc.message or exc.code}", self.AUTH_RETRY
                 ) from None
@@ -913,6 +916,12 @@ class DiscordSpeakingClient:
         self._save_token(token)
         return token
 
+    def _redirect_message(self) -> str:
+        return (
+            f"Discord rejected the redirect URI: add {self.redirect_uri} "
+            "under OAuth2 > Redirects in the Developer Portal"
+        )
+
     def _token_error(self, status: int, body: dict) -> None:
         """Raise for token endpoint failures that mean the settings are wrong."""
         error = str(body.get("error") or "")
@@ -920,10 +929,7 @@ class DiscordSpeakingClient:
         if status == 401 or error == "invalid_client":
             raise _Fatal(MSG_BAD_SECRET)
         if "redirect_uri" in description.lower():
-            raise _Fatal(
-                f"Discord rejected the redirect URI: add {self.redirect_uri} "
-                "under OAuth2 > Redirects in the Developer Portal"
-            )
+            raise _Fatal(self._redirect_message())
         if error == "invalid_scope":
             raise _Fatal(MSG_NOT_ALLOWED)
 

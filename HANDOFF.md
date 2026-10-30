@@ -97,8 +97,8 @@ Commands are in `CLAUDE.md`. Extras:
   ≥10 dB (hum isn't pumped), never cuts. Median pre-boost level under `QUIET_DB` = −55 dBFS shows the overlay warning.
 - **Speakers:** TitaNet-small, threshold 0.50, new speakers only from ≥2 s lines, level-normalized. Discord name
   first; voice clusters learn Discord names; an unsure short line stays unlabeled (wrong names are worse than none).
-- **Discord names:** local RPC (`\\.\pipe\discord-ipc-N`), scopes rpc + rpc.voice.read + identify; AUTHORIZE sends
-  `redirect_uri`; token cached and refreshed; own voice ignored.
+- **Discord names:** local RPC (`\\.\pipe\discord-ipc-N`), scopes rpc + rpc.voice.read + identify; AUTHORIZE must not send
+  `redirect_uri` (Discord refuses it; only the token exchange sends `http://localhost`); token cached and refreshed; own voice ignored.
 - **Translation is offline only** ("nothing is ever sent" must stay true; third-party sending raises consent
   questions): Opus-MT X→English (~160 MB each, CTranslate2) or Hy-MT2 1.8B Q4_K_M via a hidden llama-server.
   Finals only, never audio. English and unsure lines are skipped.

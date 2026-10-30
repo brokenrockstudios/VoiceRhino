@@ -141,6 +141,9 @@ class FakeTransport:
         if cmd == "AUTHORIZE":
             if d.authorize_error is not None:
                 return self._error(cmd, nonce, *d.authorize_error)
+            if "redirect_uri" in args:
+                return self._error(cmd, nonce, 5000, "Redirect URI cannot be used in the RPC "
+                                                     "OAuth2 Authorization flow")
             if d.reject_prompt_none and args.get("prompt") == "none":
                 return self._error(cmd, nonce, 5000, "OAuth2 Error: consent_required")
             return self._reply(cmd, nonce, {"code": d.code})
@@ -411,6 +414,7 @@ def test_first_run_authorizes_then_reports_named_speakers(harness):
     assert len(authorize) == 1
     assert authorize[0]["args"]["client_id"] == CLIENT_ID
     assert {"rpc", "rpc.voice.read"} <= set(authorize[0]["args"]["scopes"])
+    assert "redirect_uri" not in authorize[0]["args"]  # only the token exchange sends it
     assert MSG_WAITING in h.statuses
 
     assert h.http.calls == [(TOKEN_URL, {
@@ -667,6 +671,16 @@ def test_authorize_retries_without_prompt_none_if_discord_insists(harness):
     prompts = [c["args"].get("prompt") for c in h.discord.cmds("AUTHORIZE")]
     assert prompts == ["none", None]
     assert len(h.discord.transports) == 1
+
+
+def test_missing_portal_redirect_is_reported(harness):
+    h = harness()
+    h.discord.authorize_error = (5000, "OAuth2 Error: invalid_request: No redirect uri")
+    h.client.start()
+    h.wait_status("redirect URI")
+    wait_for(lambda: not h.client._thread.is_alive(), what="thread exit")
+    assert "http://localhost" in h.client.status
+    assert h.http.calls == []
 
 
 def test_wrong_secret_is_reported(harness):
