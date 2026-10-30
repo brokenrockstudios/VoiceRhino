@@ -264,7 +264,7 @@ class OverlayWindow(QWidget):
     def _label(self, u: Utterance) -> tuple[str | None, str | None]:
         if self.view.show_speakers and u.speaker:
             return u.speaker, speaker_color(u.speaker_key)
-        if self.multi_source and not self.view.show_source_number:  # the number says it already
+        if self.multi_source:
             return u.source, None
         return None, None
 

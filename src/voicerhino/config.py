@@ -84,7 +84,7 @@ class ViewConfig:
     clear_after: float = 8.0  # caption: hide text after this many quiet seconds, 0 = never
     history_seconds: int = 60  # history: how far back to show
     show_timestamps: bool = True  # history
-    show_source_number: bool = False  # history: 1, 2, ... (order of Settings › Audio) instead of the name
+    show_source_number: bool = False  # history: 1, 2, ... (order of Settings › Audio) before each line
     show_resources: bool = False  # history: a top line with VoiceRhino's own CPU, RAM and GPU use
     show_speakers: bool = True
     show_warnings: bool = True  # e.g. "Discord is very quiet"; caption windows show it only with captions

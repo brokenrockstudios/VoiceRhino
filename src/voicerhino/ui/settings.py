@@ -1192,6 +1192,7 @@ class WindowsTab(_Tab):
         self.view_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.view_list.currentRowChanged.connect(self._on_row_changed)
         self.view_list.itemChanged.connect(self._on_item_changed)
+        self.view_list.setToolTip("Tick a window to show it. Drag windows into place while unlocked.")
         self.add_caption_button = QPushButton("Add caption window")
         self.add_caption_button.setToolTip("Another big caption overlay, e.g. for a second monitor")
         self.add_caption_button.clicked.connect(lambda: self._add(ViewConfig()))
@@ -1253,18 +1254,24 @@ class WindowsTab(_Tab):
         self.history_seconds_spin.setRange(10, 900)
         self.history_seconds_spin.setSingleStep(10)
         self.history_seconds_spin.setSuffix(" s")
-        self.history_seconds_spin.setToolTip("How far back the history window goes")
+        self.history_seconds_spin.setToolTip("How far back the history window goes; older lines disappear")
         self.history_seconds_spin.valueChanged.connect(partial(self._set, "history_seconds"))
         self.timestamps_check = QCheckBox("Show timestamps")
         self.timestamps_check.toggled.connect(partial(self._set, "show_timestamps"))
         self.source_number_check = QCheckBox("Show source number")
+        self.source_number_check.setToolTip("Puts 1, 2, ... before each line: the source's place in "
+                                            "Settings › Audio, in a column of its own")
         self.source_number_check.toggled.connect(partial(self._set, "show_source_number"))
         self.resources_check = QCheckBox("Show VoiceRhino's CPU and memory use")
+        self.resources_check.setToolTip("One line at the top, updated every 2 seconds, to see if it gets in the "
+                                        "way of a game (Settings › General has averages)")
         self.resources_check.toggled.connect(partial(self._set, "show_resources"))
         self.speakers_check = QCheckBox("Show speaker names")
         self.speakers_check.setToolTip("Prefix lines with who is talking (see the Speakers tab)")
         self.speakers_check.toggled.connect(partial(self._set, "show_speakers"))
         self.warnings_check = QCheckBox("Show audio warnings")
+        self.warnings_check.setToolTip("E.g. \"Discord is very quiet: turn its volume up\". A caption window "
+                                       "shows it only along with captions; the history window keeps it up.")
         self.warnings_check.toggled.connect(partial(self._set, "show_warnings"))
         self.click_through_check = QCheckBox("Click-through when locked")
         self.click_through_check.setToolTip("When the windows are locked, clicks go through this window "
@@ -1276,11 +1283,12 @@ class WindowsTab(_Tab):
         self._sources_layout.setContentsMargins(0, 0, 0, 0)
         self._sources_layout.setSpacing(4)
         self.source_checks: list[QCheckBox] = []
+        self.sources_box.setToolTip("Untick a source to leave it out of this window, e.g. your own "
+                                    "microphone in the big captions but not in the history")
 
         form = _form()
         self._form = form
-        self._sources_field = _field(self.sources_box, "Untick a source to leave it out of this window, e.g. "
-                                     "your own microphone in the big captions but not in the history.")
+        self._sources_field = _field(self.sources_box)
         form.addRow("Captions from:", self._sources_field)
         form.addRow("Font:", _field(_row(self.font_combo, 1, _spin(self.font_size_spin), self.bold_check)))
         form.addRow("Text color:", _field(_row(self.text_color_button, stretch=True)))
@@ -1298,24 +1306,17 @@ class WindowsTab(_Tab):
         form.addRow("Clear after:", self._caption_fields[2])
         self._history_fields = [
             _field(_row(_spin(self.history_seconds_spin), stretch=True),
-                   "How far back the history window goes; older lines disappear. It's only shown "
-                   "on screen and never saved to disk.",
-                   "Ask everyone you're talking with before you use the history window."),
+                   warning="Ask everyone you're talking with before you use the history window."),
             _field(self.timestamps_check),
-            _field(self.source_number_check,
-                   "1, 2, ... in the order of Settings › Audio, in place of the source's name, so lines "
-                   "stay lined up."),
-            _field(self.resources_check,
-                   "One line at the top, updated every 2 seconds, to see if it gets in the way of a game "
-                   "(Settings › General has averages)."),
+            _field(self.source_number_check),
+            _field(self.resources_check),
         ]
         form.addRow("History length:", self._history_fields[0])
+        # The tick boxes as one group under "Options:" (its first row shows for both kinds of window).
+        form.addRow("Options:", self.speakers_check)
         for field in self._history_fields[1:]:
             form.addRow(QLabel(), field)
-        form.addRow(QLabel(), self.speakers_check)
-        form.addRow(QLabel(), _field(self.warnings_check,
-                                     "E.g. '⚠ Discord is very quiet: turn its volume up'. A caption window shows "
-                                     "it only along with captions; the history window keeps it up."))
+        form.addRow(QLabel(), self.warnings_check)
         form.addRow(QLabel(), self.click_through_check)
         form.addRow("Move to screen:", _field(self.screen_combo, self.placement_label))
 
@@ -1337,7 +1338,6 @@ class WindowsTab(_Tab):
         left.addWidget(self.add_caption_button)
         left.addWidget(self.add_history_button)
         left.addWidget(self.remove_button)
-        left.addWidget(Hint("Tick a window to show it. Drag windows into place while unlocked."))
         left_box.setFixedWidth(max(200, self.add_history_button.sizeHint().width() + 40))
 
         layout = QHBoxLayout(self)

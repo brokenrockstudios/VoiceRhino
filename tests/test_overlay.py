@@ -108,17 +108,16 @@ def test_text_opacity_fades_captions_and_outline_together():
     assert 115 <= alphas[0.5] <= 140  # one fade over text and outline, not two stacked ones
 
 
-def test_history_shows_source_numbers_in_place_of_names():
+def test_history_shows_source_numbers_next_to_names():
     view = ViewConfig.default_history()
     window = HistoryWindow(view, store_with_two_sources())
     window.multi_source = True
     window.source_numbers = {"out": 1, "mic": 2}
-    assert "Default output:" in window._html() and "Microphone:" in window._html()
+    assert '<b style="color:#8a8d93">' not in window._html()
     view.show_source_number = True
     html = window._html()
-    assert "Default output:" not in html and "Microphone:" not in html
-    assert '<b style="color:#8a8d93">1</b> <span style="color:#FFFFFF">push top lane' in html
-    assert '<b style="color:#8a8d93">2</b> <span style="color:#FFFFFF">my own words' in html
+    assert '<b style="color:#8a8d93">1</b> <b style="color:#9aa5ff">Default output:</b> ' in html
+    assert '<b style="color:#8a8d93">2</b> <b style="color:#9aa5ff">Microphone:</b> ' in html
 
 
 def test_history_resource_line_sits_above_the_warning(monkeypatch):

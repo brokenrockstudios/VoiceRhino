@@ -801,12 +801,11 @@ def test_wrapped_hints_get_just_the_height_they_need():
     dialog, _ = make_dialog(AppConfig())
     dialog.resize(1400, 900)
     dialog.show()
-    win = dialog.windows_tab
-    dialog.tabs.setCurrentWidget(win)
-    win.view_list.setCurrentRow(1)  # history: its checkboxes with hints
+    dialog.tabs.setCurrentWidget(dialog.translation_tab)
     APP.processEvents()
-    for field in win._history_fields[2:]:
-        assert field.height() == field.heightForWidth(field.width())
+    field = dialog.translation_tab.foreign_check.parentWidget()  # tick box + hint, in a row without a label
+    assert field.heightForWidth(field.width()) > 0
+    assert field.height() == field.heightForWidth(field.width())
     dialog.close()
 
 
