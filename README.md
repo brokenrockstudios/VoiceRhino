@@ -61,7 +61,8 @@ history window (unlocked: dashed frames, drag to move). Names come from voice co
 - **GPU:** not needed. The optional Whisper models need an NVIDIA GPU with 2–3 GB free VRAM.
 
 It has mostly been tested on one fast desktop PC so far, so slower machines may behave
-differently. Reports are welcome.
+differently. Reports are welcome. To see what it costs on yours, Settings → General → _Resources_
+shows VoiceRhino's own CPU, RAM and GPU use (the history window can show it too).
 
 ## Using it
 
@@ -70,12 +71,14 @@ differently. Reports are welcome.
 | Move/resize windows                       | Unlock (Ctrl+Alt+C), drag; right-click a window for options                                                                                                 |
 | Another caption window (2nd monitor)      | Tray → Windows → Add caption window                                                                                                                         |
 | See the last 30–60 s                      | The history window; set its length in Settings → Windows. Mouse wheel scrolls back (unlocked or not click-through)                                          |
+| Tell sources apart in the history         | Settings → Windows → history window → _Show source number_: 1, 2, … in the order of Settings → Audio (_Move up/down_ there)                                 |
 | Keep your own mic out of the big captions | Settings → Windows → select the caption window → _Captions from_ (shown when there are 2+ sources)                                                          |
 | Bigger text, colors, outline, opacity     | Settings → Windows (background and text opacity each have a slider)                                                                                         |
 | Snappier or steadier captions             | Settings → Timing (live update interval, pause that ends a line, shortest speech)                                                                           |
 | Try another model                         | Settings → Recognition (downloads automatically)                                                                                                            |
 | Free disk space from models you tried     | Settings → General → _Downloaded models_: sizes, and _Delete all unused_ (a deleted model downloads again if you pick it later)                             |
 | Who's talking (colors/names)              | Settings → Speakers: voice-based colors, or Discord names ([setup](docs/discord-setup.md))                                                                  |
+| See how much CPU, RAM and GPU it uses     | Settings → General → _Resources_ (now, 1 and 5 min averages), or a line at the top of the history window (Settings → Windows → _Show VoiceRhino's CPU and memory use_) |
 | Translate (e.g. Chinese → English)        | Settings → Translation: pick the language; its model downloads once and runs on your PC ([details](#translation)). Or a Whisper model with Task = Translate |
 
 ### Settings
@@ -99,7 +102,7 @@ Right-click the tray icon → **Settings…**
     <td><img src="docs/images/settings-speakers.png" alt="Settings, Speakers tab: color speakers by voice, optional Discord names"><br>
       <b>Speakers:</b> a color per voice, or Discord names</td>
     <td><img src="docs/images/settings-general.png" alt="Settings, General tab: lock hotkey and a list of downloaded models with their sizes and whether they're in use"><br>
-      <b>General:</b> the lock hotkey, and every downloaded model with its size; delete the ones you don't use</td>
+      <b>General:</b> the lock hotkey, VoiceRhino's own CPU, RAM and GPU use, and every downloaded model with its size</td>
   </tr>
 </table>
 

@@ -85,6 +85,7 @@ from ..audio.devices import DEFAULT_OUTPUT_KEY, DeviceInfo
 from ..audio.gain import SILENCE_DB
 from ..config import AppConfig, SourceConfig, ViewConfig
 from ..pipeline import QUIET_DB, PipelineSettings, SourceLevel
+from ..resources import ResourceMonitor, describe
 from ..translate import is_model_downloaded
 from ..translate.catalog import TRANSLATION_MODELS, TranslationModel
 
@@ -252,10 +253,17 @@ def _ui_kind(src: SourceConfig) -> str:
     return "input" if src.device.startswith("input:") else "output"
 
 
-def _source_title(src: SourceConfig) -> str:
+def _source_title(src: SourceConfig, number: int | None = None) -> str:
+    """"Discord - app audio"; numbered ("2. Discord - app audio") when given its 1-based place in
+    the source list, which is also the number a history window shows (Show source number)."""
     kind = _ui_kind(src)
     name = src.describe() or ("Not picked yet" if kind == "input" else "(no name)")
-    return f"{name} - {_KIND_SUFFIX[kind]}"
+    return f"{f'{number}. ' if number else ''}{name} - {_KIND_SUFFIX[kind]}"
+
+
+def _source_number(sources: list[SourceConfig], index: int) -> int | None:
+    """1-based number for the source at index, or None when there's only one (nothing to tell apart)."""
+    return index + 1 if len(sources) > 1 else None
 
 
 def _view_titles(views: list[ViewConfig]) -> list[str]:
@@ -570,6 +578,12 @@ class AudioTab(_Tab):
         self.remove_button = QPushButton("Remove")
         self.remove_button.setToolTip("Remove the selected source (one always stays; untick it to pause it)")
         self.remove_button.clicked.connect(self._on_remove)
+        self.up_button = QPushButton("Move up")
+        self.up_button.setToolTip("Sources are numbered in this order (history windows can show the number)")
+        self.up_button.clicked.connect(partial(self._on_move, -1))
+        self.down_button = QPushButton("Move down")
+        self.down_button.setToolTip(self.up_button.toolTip())
+        self.down_button.clicked.connect(partial(self._on_move, 1))
 
         self.kind_combo = _combo()
         for key, label, tooltip in SOURCE_KINDS:
@@ -638,6 +652,8 @@ class AudioTab(_Tab):
         buttons = QVBoxLayout()
         buttons.addWidget(self.add_button)
         buttons.addWidget(self.remove_button)
+        buttons.addWidget(self.up_button)
+        buttons.addWidget(self.down_button)
         buttons.addStretch(1)
         source_row = QHBoxLayout(sources)
         source_row.addWidget(self.source_list, 1)
@@ -774,9 +790,9 @@ class AudioTab(_Tab):
     def _rebuild(self, row: int) -> None:
         with self._quiet():
             self.source_list.clear()
-            for src in self._cfg.sources:
-                self.source_list.addItem(_check_item(_source_title(src), src.enabled,
-                                                     "Tick to caption this source"))
+            for i, src in enumerate(self._cfg.sources):
+                self.source_list.addItem(_check_item(_source_title(src, _source_number(self._cfg.sources, i)),
+                                                     src.enabled, "Tick to caption this source"))
             if self._cfg.sources:
                 self.source_list.setCurrentRow(min(max(row, 0), len(self._cfg.sources) - 1))
         self.remove_button.setEnabled(len(self._cfg.sources) > 1)
@@ -784,6 +800,9 @@ class AudioTab(_Tab):
 
     def _show_current(self) -> None:
         src = self._current()
+        row = self.source_list.currentRow()
+        self.up_button.setEnabled(row > 0)
+        self.down_button.setEnabled(0 <= row < len(self._cfg.sources) - 1)
         self.editor.setEnabled(src is not None)
         kind = _ui_kind(src) if src else "output"
         with self._quiet():
@@ -849,7 +868,7 @@ class AudioTab(_Tab):
         item = self.source_list.currentItem()
         if item is not None:
             with self._quiet():
-                item.setText(_source_title(src))
+                item.setText(_source_title(src, _source_number(self._cfg.sources, self.source_list.currentRow())))
 
     # -- user edits --
 
@@ -872,6 +891,12 @@ class AudioTab(_Tab):
         if len(self._cfg.sources) > 1 and 0 <= row < len(self._cfg.sources):
             del self._cfg.sources[row]
             self._rebuild(row)
+
+    def _on_move(self, step: int) -> None:
+        row, sources = self.source_list.currentRow(), self._cfg.sources
+        if 0 <= row < len(sources) and 0 <= row + step < len(sources):
+            sources[row], sources[row + step] = sources[row + step], sources[row]
+            self._rebuild(row + step)
 
     def _on_kind_changed(self, _index: int) -> None:
         src = self._current()
@@ -1224,6 +1249,10 @@ class WindowsTab(_Tab):
         self.history_seconds_spin.valueChanged.connect(partial(self._set, "history_seconds"))
         self.timestamps_check = QCheckBox("Show timestamps")
         self.timestamps_check.toggled.connect(partial(self._set, "show_timestamps"))
+        self.source_number_check = QCheckBox("Show source number")
+        self.source_number_check.toggled.connect(partial(self._set, "show_source_number"))
+        self.resources_check = QCheckBox("Show VoiceRhino's CPU and memory use")
+        self.resources_check.toggled.connect(partial(self._set, "show_resources"))
         self.speakers_check = QCheckBox("Show speaker names")
         self.speakers_check.setToolTip("Prefix lines with who is talking (see the Speakers tab)")
         self.speakers_check.toggled.connect(partial(self._set, "show_speakers"))
@@ -1265,6 +1294,12 @@ class WindowsTab(_Tab):
                    "on screen and never saved to disk.",
                    "Ask everyone you're talking with before you use the history window."),
             _field(self.timestamps_check),
+            _field(self.source_number_check,
+                   "1, 2, ... in the order of Settings › Audio, in place of the source's name, so lines "
+                   "stay lined up."),
+            _field(self.resources_check,
+                   "One line at the top, updated every 2 seconds, to see if it gets in the way of a game "
+                   "(Settings › General has averages)."),
         ]
         form.addRow("History length:", self._history_fields[0])
         form.addRow("", self._history_fields[1])
@@ -1336,6 +1371,8 @@ class WindowsTab(_Tab):
             self.clear_after_spin.setValue(_float(view.clear_after, d.clear_after))
             self.history_seconds_spin.setValue(_int(view.history_seconds, d.history_seconds))
             self.timestamps_check.setChecked(bool(view.show_timestamps))
+            self.source_number_check.setChecked(bool(view.show_source_number))
+            self.resources_check.setChecked(bool(view.show_resources))
             self.speakers_check.setChecked(bool(view.show_speakers))
             self.warnings_check.setChecked(bool(view.show_warnings))
             self.click_through_check.setChecked(bool(view.click_through))
@@ -1360,8 +1397,9 @@ class WindowsTab(_Tab):
             box.setParent(None)
             box.deleteLater()
         self.source_checks = []
-        for src in self._cfg.sources:
-            box = QCheckBox(_source_title(src) + ("" if src.enabled else " (off)"))
+        for i, src in enumerate(self._cfg.sources):
+            title = _source_title(src, _source_number(self._cfg.sources, i))
+            box = QCheckBox(title + ("" if src.enabled else " (off)"))
             box.setChecked(view is not None and src.id not in view.hidden_sources)
             box.toggled.connect(partial(self._on_source_toggled, src.id))
             self._sources_layout.addWidget(box)
@@ -1750,6 +1788,15 @@ class GeneralTab(_Tab):
             "Shift so it doesn't fire while typing."))
         form.addRow("Folders:", _field(_row(self.config_button, self.log_button, stretch=True)))
         form.addRow("Version:", QLabel(f"VoiceRhino {__version__}"))
+        self.resources_label = QLabel()
+        self.resources_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.resources_hint = Hint()
+        self._resources_field = _field(self.resources_label, self.resources_hint)
+        form.addRow("Resources:", self._resources_field)
+        form.setRowVisible(self._resources_field, False)  # until the app hands over its monitor
+        self._form = form
+        self._monitor: ResourceMonitor | None = None
+        self._resource_timer = QTimer(self, interval=2000, timeout=self.refresh_resources)
 
         models = QGroupBox("Downloaded models")
         models_column = QVBoxLayout(models)
@@ -1774,6 +1821,36 @@ class GeneralTab(_Tab):
     def showEvent(self, event) -> None:
         super().showEvent(event)
         self.refresh_downloads()  # the model choice may have changed on the Recognition tab
+        self.refresh_resources()
+        self._resource_timer.start()
+
+    def hideEvent(self, event) -> None:
+        super().hideEvent(event)
+        self._resource_timer.stop()
+
+    # -- resources --
+
+    def set_resource_monitor(self, monitor: ResourceMonitor | None) -> None:
+        """The app's monitor of its own CPU, memory and GPU use; read every 2 s while this tab shows."""
+        self._monitor = monitor
+        self._form.setRowVisible(self._resources_field, monitor is not None)
+        self.refresh_resources()
+
+    def refresh_resources(self) -> None:
+        if self._monitor is None:
+            return
+        now = self._monitor.latest()
+        if now is None:
+            self.resources_label.setText("Measuring…")
+            self.resources_hint.setText("")
+            return
+        self.resources_label.setText(describe(now, long=True))
+        averages = [f"{usage.cpu_cores:.1f} cores over {label}"
+                    for label, seconds in (("1 min", 60), ("5 min", 300))
+                    if (usage := self._monitor.average(seconds)) is not None]
+        self.resources_hint.setText(
+            f"CPU on average: {', '.join(averages)}. Counts VoiceRhino with its speech models and "
+            "helpers (e.g. llama.cpp), like Task Manager.")
 
     def _in_use(self) -> set[str]:
         keys = storage.used_keys(self._cfg)
@@ -1858,7 +1935,8 @@ class SettingsDialog(QDialog):
 
     applied = Signal(object)
 
-    def __init__(self, config: AppConfig, parent: QWidget | None = None, levels: LevelProvider | None = None):
+    def __init__(self, config: AppConfig, parent: QWidget | None = None, levels: LevelProvider | None = None,
+                 resources: ResourceMonitor | None = None):
         super().__init__(parent)
         self.setWindowTitle(WINDOW_TITLE)
         self.setMinimumSize(720, 560)
@@ -1897,6 +1975,7 @@ class SettingsDialog(QDialog):
         layout.addWidget(self.button_box)
         self._load()
         self.audio_tab.set_level_provider(levels)
+        self.general_tab.set_resource_monitor(resources)
 
     def _load(self) -> None:
         for page in self._pages:

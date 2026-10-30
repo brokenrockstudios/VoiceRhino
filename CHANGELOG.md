@@ -26,6 +26,15 @@ already listening.
 - **Text opacity**: Settings › Windows has a _Text opacity_ slider next to _Background
   opacity_, so the game can show through the captions. The text, its outline and the speaker
   names fade together, down to 10%.
+- **Source numbers in the history window**: with several sources (e.g. Discord and a browser),
+  Settings › Windows › _Show source number_ puts 1, 2, … in front of each line instead of the
+  source's name, so lines stay lined up. Sources are numbered in the order of Settings › Audio,
+  which now has _Move up_ and _Move down_.
+- **See what VoiceRhino costs**: Settings › General › _Resources_ shows its own CPU (in cores and
+  % of your CPU), RAM and GPU use right now, with 1- and 5-minute CPU averages. A history window
+  can show the same as one line at the top (Settings › Windows › _Show VoiceRhino's CPU and
+  memory use_), to check whether it gets in the way of a game. It counts the speech models and
+  the Hy-MT2 translation helper too, like Task Manager.
 - README: screenshots of the caption windows and the Settings tabs.
 
 ## 0.1.0 (2026-10-29)

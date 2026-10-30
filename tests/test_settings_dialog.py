@@ -8,6 +8,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import copy
 import sys
+import time
 import types
 from dataclasses import asdict
 from pathlib import Path
@@ -24,6 +25,7 @@ from voicerhino.audio.devices import DEFAULT_OUTPUT_KEY, DeviceInfo
 from voicerhino.config import AppConfig, SourceConfig, ViewConfig
 from voicerhino.paths import models_dir
 from voicerhino.pipeline import PipelineSettings, SourceLevel
+from voicerhino.resources import ResourceMonitor, Usage
 from voicerhino.ui import settings
 from voicerhino.ui.settings import LevelMeter, SettingsDialog, parse_language, place_view
 
@@ -244,7 +246,7 @@ def test_audio_devices_and_sources():
     assert len({s.id for s in sources}) == 3  # each new source gets its own id
     assert (sources[1].kind, sources[1].device, sources[1].name) == ("device", "input:Microphone (Arctis)", "Me")
     assert (sources[2].kind, sources[2].file) == ("file", r"C:\clips\demo.wav")
-    assert audio.source_list.item(1).text() == "Me - microphone"
+    assert audio.source_list.item(1).text() == "2. Me - microphone"
 
     audio.source_list.setCurrentRow(1)
     audio.remove_button.click()
@@ -617,7 +619,7 @@ def test_window_source_choice():
     win.view_list.setCurrentRow(0)  # the caption window
     assert win._form.isRowVisible(win._sources_field)
     assert [box.text() for box in win.source_checks] == [
-        "Default output - what you hear", "Microphone (Arctis) - microphone"]
+        "1. Default output - what you hear", "2. Microphone (Arctis) - microphone"]
     assert all(box.isChecked() for box in win.source_checks)
     win.source_checks[1].setChecked(False)  # keep my own mic out of the big captions
     dialog.apply()
@@ -726,3 +728,66 @@ def test_window_text_opacity():
     assert [v.text_opacity for v in emitted[-1].views] == [0.6, 1.0]
     win.view_list.setCurrentRow(1)
     assert win.text_opacity_label.text() == "100%"
+
+
+def test_sources_are_numbered_and_reordered():
+    cfg = AppConfig(sources=[SourceConfig(kind="app", app="Discord.exe"),
+                             SourceConfig(kind="app", app="chrome.exe")])
+    discord, chrome = (s.id for s in cfg.sources)
+    dialog, emitted = make_dialog(cfg)
+    audio = dialog.audio_tab
+    audio.source_list.setCurrentRow(0)
+    assert [audio.source_list.item(i).text() for i in range(2)] == [
+        "1. Discord - app audio", "2. chrome - app audio"]
+    assert not audio.up_button.isEnabled() and audio.down_button.isEnabled()
+    audio.down_button.click()
+    assert [audio.source_list.item(i).text() for i in range(2)] == [
+        "1. chrome - app audio", "2. Discord - app audio"]
+    assert audio.source_list.currentRow() == 1  # the moved source stays selected
+    assert audio.up_button.isEnabled() and not audio.down_button.isEnabled()
+    dialog.apply()
+    assert [s.id for s in emitted[-1].sources] == [chrome, discord]
+    audio.remove_button.click()  # one source left: nothing to tell apart, so no number
+    assert audio.source_list.item(0).text() == "chrome - app audio"
+    assert not audio.up_button.isEnabled() and not audio.down_button.isEnabled()
+
+
+def test_window_source_number_choice():
+    dialog, emitted = make_dialog(AppConfig())
+    win = dialog.windows_tab
+    dialog.tabs.setCurrentWidget(win)
+    win.view_list.setCurrentRow(1)  # history
+    assert not win.source_number_check.isChecked()
+    win.source_number_check.setChecked(True)
+    dialog.apply()
+    assert [v.show_source_number for v in emitted[-1].views] == [False, True]
+    win.view_list.setCurrentRow(0)  # a caption window doesn't offer it
+    assert not win._form.isRowVisible(win._history_fields[2])
+
+
+def test_general_tab_resources():
+    dialog, _ = make_dialog(AppConfig())
+    general = dialog.general_tab
+    assert not general._form.isRowVisible(general._resources_field)  # no monitor handed over
+    monitor = ResourceMonitor()
+    general.set_resource_monitor(monitor)
+    assert general._form.isRowVisible(general._resources_field)
+    assert general.resources_label.text() == "Measuring…"
+    now = time.monotonic()
+    monitor._samples.extend([(now - 120, Usage(1.0, 10**9)), (now - 5, Usage(0.5, 10**9, 0.0, 0))])
+    general.refresh_resources()
+    assert general.resources_label.text().startswith("CPU 0.5 cores (")
+    assert "of your CPU) · RAM" in general.resources_label.text()
+    assert "0.5 cores over 1 min, 0.8 cores over 5 min" in general.resources_hint.text()
+
+
+def test_window_resources_choice():
+    dialog, emitted = make_dialog(AppConfig())
+    win = dialog.windows_tab
+    dialog.tabs.setCurrentWidget(win)
+    win.view_list.setCurrentRow(1)  # history
+    win.resources_check.setChecked(True)
+    dialog.apply()
+    assert [v.show_resources for v in emitted[-1].views] == [False, True]
+    win.view_list.setCurrentRow(0)
+    assert not win._form.isRowVisible(win._history_fields[3])

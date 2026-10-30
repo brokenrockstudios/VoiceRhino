@@ -64,6 +64,8 @@ class OverlayWindow(QWidget):
         self.view = view
         self.locked = False
         self.multi_source = False  # label lines with the source name when several run
+        self.source_numbers: dict[str, int] = {}  # SourceConfig id -> 1-based place in the source list
+        self.resources: str | None = None  # VoiceRhino's own CPU/RAM/GPU use, one line (show_resources)
         self._status = ""
         self._status_until = 0.0
         self.warning: str | None = None  # small note kept at the top, e.g. "Discord is very quiet"
@@ -120,6 +122,11 @@ class OverlayWindow(QWidget):
         while captions show). Hidden in windows with show_warnings off."""
         if text != self.warning:
             self.warning = text
+            self.update()
+
+    def set_resources(self, text: str | None) -> None:
+        if text != self.resources:
+            self.resources = text
             self.update()
 
     def on_utterance(self, utt: Utterance) -> None:
@@ -211,6 +218,24 @@ class OverlayWindow(QWidget):
     def _shown_warning(self) -> str | None:
         return self.warning if self.view.show_warnings else None
 
+    def _shown_resources(self) -> str | None:
+        return self.resources if self.view.kind == "history" and self.view.show_resources else None
+
+    def _paint_resources(self, p: QPainter) -> None:
+        """One line at the top (cut short if the window is narrow), above any warning."""
+        text = self._shown_resources()
+        if not text:
+            return
+        f = QFont("Segoe UI")
+        f.setPixelSize(12)
+        p.setFont(f)
+        r = QRectF(self.rect()).adjusted(12, 4 if self.locked else 20, -12, -4)
+        text = QFontMetricsF(f).elidedText(text, Qt.ElideRight, r.width())
+        p.setPen(QColor(0, 0, 0, 200))
+        p.drawText(r.translated(1, 1), Qt.AlignTop | Qt.AlignLeft, text)
+        p.setPen(QColor(170, 175, 186))
+        p.drawText(r, Qt.AlignTop | Qt.AlignLeft, text)
+
     def _paint_warning(self, p: QPainter) -> None:
         warning = self._shown_warning()
         if not warning:
@@ -219,7 +244,7 @@ class OverlayWindow(QWidget):
         f.setPixelSize(max(13, round(self.view.font_size * 0.4)))
         f.setBold(True)
         p.setFont(f)
-        top = 4 if self.locked else 20  # below the "drag to move" hints while unlocked
+        top = (4 if self.locked else 20) + (18 if self._shown_resources() else 0)  # below hints/resources
         r = QRectF(self.rect()).adjusted(10, top, -10, -4)
         flags = Qt.AlignTop | Qt.AlignHCenter
         p.setPen(QColor(0, 0, 0, 220))  # shadow, so it reads over a bright game too
@@ -239,7 +264,7 @@ class OverlayWindow(QWidget):
     def _label(self, u: Utterance) -> tuple[str | None, str | None]:
         if self.view.show_speakers and u.speaker:
             return u.speaker, speaker_color(u.speaker_key)
-        if self.multi_source:
+        if self.multi_source and not self.view.show_source_number:  # the number says it already
             return u.source, None
         return None, None
 
@@ -387,6 +412,9 @@ class HistoryWindow(OverlayWindow):
             if v.show_timestamps:
                 stamp = time.strftime("%H:%M:%S", time.localtime(u.wall_start))
                 parts.append(f'<span style="color:#8a8d93">{stamp}</span> ')
+            if v.show_source_number:
+                number = self.source_numbers.get(u.source_id or "")
+                parts.append(f'<b style="color:#8a8d93">{number or "&nbsp;"}</b> ')
             label, color = self._label(u)
             if label:
                 parts.append(f'<b style="color:{color or LABEL_FALLBACK}">{html.escape(label)}:</b> ')
@@ -408,12 +436,14 @@ class HistoryWindow(OverlayWindow):
         p.setRenderHint(QPainter.Antialiasing)
         markup = self._html()
         self._paint_frame(p, bool(markup))
+        self._paint_resources(p)
         self._paint_warning(p)
         if not markup:
             self._paint_status(p)
             return
         pad = 12
-        top = pad + (18 if not self.locked else 0) + (18 if self._shown_warning() else 0)
+        top = (pad + (18 if not self.locked else 0) + (18 if self._shown_resources() else 0)
+               + (18 if self._shown_warning() else 0))
         width, avail = self.width() - 2 * pad, self.height() - top - pad
         self._doc.setDefaultFont(_font(v))
         self._doc.setTextWidth(width)

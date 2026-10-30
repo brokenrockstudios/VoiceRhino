@@ -9,6 +9,8 @@ os.environ.setdefault("QT_QPA_FONTDIR", os.path.join(os.environ.get("WINDIR", r"
 
 import time  # noqa: E402
 
+from PySide6.QtCore import QRectF  # noqa: E402
+from PySide6.QtGui import QFontMetricsF, QPainter  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from voicerhino.config import ViewConfig  # noqa: E402
@@ -104,3 +106,39 @@ def test_text_opacity_fades_captions_and_outline_together():
         alphas[opacity] = max_alpha(window)
     assert alphas[1.0] >= 250 and alphas["junk"] == alphas[1.0]
     assert 115 <= alphas[0.5] <= 140  # one fade over text and outline, not two stacked ones
+
+
+def test_history_shows_source_numbers_in_place_of_names():
+    view = ViewConfig.default_history()
+    window = HistoryWindow(view, store_with_two_sources())
+    window.multi_source = True
+    window.source_numbers = {"out": 1, "mic": 2}
+    assert "Default output:" in window._html() and "Microphone:" in window._html()
+    view.show_source_number = True
+    html = window._html()
+    assert "Default output:" not in html and "Microphone:" not in html
+    assert '<b style="color:#8a8d93">1</b> <span style="color:#FFFFFF">push top lane' in html
+    assert '<b style="color:#8a8d93">2</b> <span style="color:#FFFFFF">my own words' in html
+
+
+def test_history_resource_line_sits_above_the_warning(monkeypatch):
+    view = ViewConfig.default_history()
+    window = HistoryWindow(view, TranscriptStore())
+    window.set_resources("CPU 0.5 cores (3%) · RAM 1.2 GB")
+    window.set_warning("⚠ Discord is very quiet")
+    assert window._shown_resources() is None  # off by default
+    view.show_resources = True
+    assert window._shown_resources() == "CPU 0.5 cores (3%) · RAM 1.2 GB"
+    tops = []
+    monkeypatch.setattr(QFontMetricsF, "elidedText", lambda self, text, mode, width: text)
+    real_draw = QPainter.drawText
+    monkeypatch.setattr(QPainter, "drawText", lambda p, *args: (
+        tops.append((args[0].top(), args[-1])) if isinstance(args[0], QRectF) else None, real_draw(p, *args))[1])
+    window.set_locked(True)
+    window.grab()
+    resource_top = min(t for t, text in tops if text.startswith("CPU"))
+    warning_top = min(t for t, text in tops if text.startswith("⚠"))
+    assert resource_top < warning_top
+    caption = CaptionWindow(ViewConfig(show_resources=True), TranscriptStore())
+    caption.set_resources("CPU 0.5 cores")
+    assert caption._shown_resources() is None  # history windows only

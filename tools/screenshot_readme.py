@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -31,6 +32,7 @@ from screenshot_settings import dark_palette  # noqa: E402
 from voicerhino.asr import storage  # noqa: E402
 from voicerhino.config import AppConfig, SourceConfig  # noqa: E402
 from voicerhino.pipeline import SourceLevel  # noqa: E402
+from voicerhino.resources import ResourceMonitor, Usage  # noqa: E402
 from voicerhino.ui.settings import SettingsDialog  # noqa: E402
 
 # What General › Downloaded models lists: a fixed set (key, bytes on disk) so the shot doesn't
@@ -63,6 +65,15 @@ def demo_config() -> AppConfig:
     return cfg
 
 
+def demo_monitor() -> ResourceMonitor:
+    """Five minutes of typical use with the default model, so General › Resources has numbers."""
+    monitor = ResourceMonitor()
+    now = time.monotonic()
+    monitor._samples.extend((now - age, Usage(0.4 if age < 60 else 0.3, 1_180_000_000, 0.0, 0))
+                            for age in range(298, 0, -2))
+    return monitor
+
+
 def shoot(dialog: SettingsDialog, tab, name: str) -> None:
     dialog.tabs.setCurrentWidget(tab)
     QApplication.processEvents()
@@ -81,7 +92,7 @@ def main() -> None:
     screenshot_overlays.main(str(OUT / "overlays.png"), warning=False)
 
     levels = [SourceLevel("Discord", -24.0, 0.0, -22.0), SourceLevel("My microphone", -31.0, 6.0, -28.0)]
-    dialog = SettingsDialog(demo_config(), levels=lambda: levels)
+    dialog = SettingsDialog(demo_config(), levels=lambda: levels, resources=demo_monitor())
     dialog.resize(720, 560)
     dialog.show()
     shoot(dialog, dialog.audio_tab, "audio")

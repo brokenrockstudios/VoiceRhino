@@ -72,6 +72,9 @@ def _kill_with_us(proc: subprocess.Popen) -> int | None:
     return job
 
 
+RUNNING: set[int] = set()  # pids of llama-servers we started, counted in our resource use
+
+
 class HyMTTranslator(Translator):
     def __init__(self, url: str, key: str, proc: subprocess.Popen | None = None, job: int | None = None):
         self.url = url
@@ -92,6 +95,7 @@ class HyMTTranslator(Translator):
         proc = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, creationflags=flags, cwd=exe.parent)
         job = _kill_with_us(proc)
+        RUNNING.add(proc.pid)
         tail: collections.deque[str] = collections.deque(maxlen=15)
         threading.Thread(target=_drain, args=(proc, tail), name="llama-server-output", daemon=True).start()
         self = cls(f"http://127.0.0.1:{port}", key, proc, job)
@@ -136,6 +140,8 @@ class HyMTTranslator(Translator):
         with self._close_lock:
             proc, self._proc = self._proc, None
             job, self._job = self._job, None
+        if proc is not None:
+            RUNNING.discard(proc.pid)
         if proc is not None and proc.poll() is None:
             proc.terminate()
             try:

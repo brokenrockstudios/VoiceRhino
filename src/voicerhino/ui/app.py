@@ -20,7 +20,9 @@ from ..audio.base import AudioSource
 from ..config import AppConfig, SourceConfig, ViewConfig
 from ..paths import data_dir
 from ..pipeline import QUIET_DB, CaptionPipeline, SourceLevel
+from ..resources import ResourceMonitor, describe
 from ..transcript import TranscriptStore, Utterance
+from ..translate import llama
 from ..translate import preload_runtime as preload_translation_runtime
 from .overlay import OverlayWindow, make_window
 from .theme import app_icon, apply_dark_theme
@@ -78,6 +80,8 @@ class Controller(QObject):
         self._settings = None
         self._settings_snapshot: AppConfig | None = None
         self._first_run_hint = False  # very first run: say "ready" until the first caption shows
+        # Our own CPU/RAM/GPU use, llama-server included (Settings › General, history windows).
+        self.resources = ResourceMonitor(helper_pids=lambda: llama.RUNNING)
         self._save_timer = QTimer(self, singleShot=True, interval=1000, timeout=self.save)
         self._watchdog = QTimer(self, interval=2000, timeout=self._check_pipelines)
         self.hotkey = GlobalHotkey(self.toggle_lock)
@@ -96,6 +100,7 @@ class Controller(QObject):
             self._set_status(f"Hotkey {self.config.lock_hotkey} is unavailable; use the tray menu to lock")
         self.tray.show()
         self._watchdog.start()
+        self.resources.start()
         self._configure_translation()
         self._load_engine()
         if first_run:
@@ -112,6 +117,7 @@ class Controller(QObject):
             self.tray.showMessage(title, text, app_icon(), 15000)
 
     def shutdown(self) -> None:
+        self.resources.stop()
         self._stop_pipelines()
         if self.translator is not None:
             self.translator.stop()
@@ -285,6 +291,14 @@ class Controller(QObject):
                 else:
                     self._set_status(f"Waiting for audio device: {pipe.source.label}", 6)
         self._check_quiet()
+        self._show_resources()
+
+    def _show_resources(self) -> None:
+        """Refresh the resource line of history windows that show it (every watchdog tick, 2 s)."""
+        usage = self.resources.latest()
+        text = describe(usage) if usage is not None else "Measuring CPU and memory use…"
+        for w in self.windows.values():
+            w.set_resources(text if w.view.show_resources else None)
 
     def levels(self) -> list[SourceLevel]:
         """What each running source sounds like (Settings › Audio meter)."""
@@ -372,8 +386,10 @@ class Controller(QObject):
     def _update_source_labels(self) -> None:
         """Label lines with their source name in windows that show more than one running source."""
         enabled = [s.id for s in self.config.sources if s.enabled]
+        numbers = {s.id: i for i, s in enumerate(self.config.sources, 1)}
         for w in self.windows.values():
             w.multi_source = len([i for i in enabled if i not in w.view.hidden_sources]) > 1
+            w.source_numbers = numbers
             w.update()
 
     def _on_geometry_saved(self, view: ViewConfig) -> None:
@@ -496,7 +512,7 @@ class Controller(QObject):
             self._settings.activateWindow()
             return
         self._settings_snapshot = copy.deepcopy(self.config)
-        self._settings = SettingsDialog(self.config, levels=self.levels)
+        self._settings = SettingsDialog(self.config, levels=self.levels, resources=self.resources)
         self._settings.applied.connect(self.apply_config)
         self._settings.show()
 

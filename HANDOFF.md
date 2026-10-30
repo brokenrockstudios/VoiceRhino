@@ -33,6 +33,7 @@ src/voicerhino/
   config.py       dataclass config <-> %APPDATA%\VoiceRhino\config.json (tolerant loader, _migrate)
   paths.py        config/models/logs dirs (env overrides VOICERHINO_*)
   pipeline.py     CaptionProcessor (pure, sample-clocked) + CaptionPipeline (thread, resample, gap fill)
+  resources.py    own CPU/RAM (psutil) + GPU (Windows PDH counters) use, sampled every 2 s; 1/5 min averages
   transcript.py   Utterance + TranscriptStore (finals + live partial per source; listeners)
   audio/          AudioSource base, devices, wasapi (PyAudioWPatch), process_loopback (ctypes COM),
                   app_source (follow an exe), file_source, gain (AutoGain, levels)
@@ -41,7 +42,7 @@ src/voicerhino/
   translate/      worker + language guess, catalog, opus (CTranslate2), llama (hidden Hy-MT2 llama-server)
   ui/             app (Controller, tray, model loading), overlay, settings (7 tabs), winutil, theme
 tests/            conftest builds synthetic speech with Windows TTS (tools/make_test_audio.py)
-tools/            bench, eval_speakers, try_loopback, try_process_loopback, screenshot_overlays/_settings
+tools/            bench, eval_speakers, try_loopback, try_process_loopback, screenshot_overlays/_settings/_readme
 ```
 
 User data (not in git): config and `discord_token.json` in `%APPDATA%\VoiceRhino`, models in
@@ -108,6 +109,9 @@ Commands are in `CLAUDE.md`. Extras:
 - **Audio:** loopback delivers nothing while silent (hence gap filling). Per-app capture keeps ~30 ms queued, so
   holding the GIL longer drops audio (`dropped_frames`). "Process tree" = target plus direct children; level follows
   the Volume Mixer; needs build ≥ 20348; a dead PID still "captures" silence (psutil checks, `AppSource` re-attaches).
+  Anything that lists every process holds the GIL ~25 ms (psutil `children()`, `process_iter`), so the resource
+  monitor counts helpers from `translate.llama.RUNNING` instead. Per-process GPU memory from PDH can be nonsense
+  (150 GB for dwm on a 32 GB card): `resources.py` caps it at the adapter's total in use.
 - **Fatal abort:** ctranslate2's first import overlapping sherpa-onnx loading or decoding aborted Python ("Fatal
   Python error: Aborted", no traceback). The Controller imports it first (`translate.preload_runtime`); exact cause unconfirmed.
 - **Privacy:** llama-server output may contain caption text, so it's drained into memory, never logged; its HTTP
