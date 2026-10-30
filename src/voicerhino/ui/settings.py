@@ -1996,7 +1996,7 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(WINDOW_TITLE)
         self.setMinimumSize(720, 560)
-        self.resize(780, 620)
+        self.resize(820, 620)
         self.setSizeGripEnabled(True)
         self._saved = copy.deepcopy(config)  # what Cancel returns to
         self._config = copy.deepcopy(config)  # the working copy the tabs edit

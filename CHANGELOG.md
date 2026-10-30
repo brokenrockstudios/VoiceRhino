@@ -3,6 +3,16 @@
 What changed in each VoiceRhino release. Download releases from the
 [Releases page](https://github.com/brokenrockstudios/VoiceRhino/releases).
 
+## 0.1.2 (unreleased)
+
+- **Discord names work again.** Discord started refusing VoiceRhino's sign-in request ("Redirect
+  URI cannot be used in the RPC OAuth2 Authorization flow"), so the approval popup never
+  appeared and the tray kept saying it was retrying. If the Developer Portal app has no
+  redirect, the status now says to add `http://localhost` under OAuth2 › Redirects instead of
+  retrying forever.
+- Settings opens a little wider, so the history window's "ask everyone" warning fits on one
+  line.
+
 ## 0.1.1 (2026-10-29)
 
 A clearer first launch: it's now always obvious whether VoiceRhino is still getting ready or
