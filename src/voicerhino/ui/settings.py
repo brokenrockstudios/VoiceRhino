@@ -90,7 +90,7 @@ from ..pipeline import QUIET_DB, PipelineSettings, SourceLevel
 from ..resources import ResourceMonitor, describe
 from ..updates import RELEASES_PAGE, Release, is_newer, latest_release
 from ..translate import is_model_downloaded
-from ..translate.catalog import TRANSLATION_MODELS, TranslationModel
+from ..translate.catalog import TARGETS, TRANSLATION_MODELS, TranslationModel
 
 LevelProvider = Callable[[], "list[SourceLevel]"]
 
@@ -1640,8 +1640,12 @@ class SpeakersTab(_Tab):
 class TranslationTab(_Tab):
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
+        self.target_combo = _combo()
+        for code, name in TARGETS.items():
+            self.target_combo.addItem(name, code)
+        self.target_combo.currentIndexChanged.connect(self._on_target_changed)
         self.model_combo = _combo()
-        self.model_combo.setToolTip("Translates other languages into English on this PC. "
+        self.model_combo.setToolTip("Translates other languages on this PC. "
                                     "The model downloads the first time you pick it.")
         self.model_combo.currentIndexChanged.connect(self._on_model_changed)
         self.size_label = QLabel()
@@ -1677,7 +1681,11 @@ class TranslationTab(_Tab):
         column.addWidget(self.recognition_warning)
 
         form = _form()
-        form.addRow("Translate:", model_field)
+        form.addRow("Translate into:", _field(self.target_combo,
+                                              "Into English, every model below works; into the other languages, "
+                                              "only Hy-MT2. For a friend who reads that language, e.g. on their PC "
+                                              "while you speak English."))
+        form.addRow("Model:", model_field)
         form.addRow(QLabel(), _field(self.foreign_check,
                                "Each line's language is guessed from its letters and common words. Untick to "
                                "translate every line, e.g. if lines in that language are being skipped."))
@@ -1685,12 +1693,13 @@ class TranslationTab(_Tab):
                        "also gets llama.cpp from GitHub), then caption text never leaves this PC. No "
                        "accounts or keys. Finished lines show their translation under (history) or "
                        "instead of (captions) the original.")
-        tip = Hint("With a GPU, Whisper Medium or Large v3 can also translate as it listens: pick one in "
-                   "Recognition and set Task to 'Translate to English'. Whisper Turbo can't translate.")
+        self.whisper_tip = Hint("With a GPU, Whisper Medium or Large v3 can also translate into English as it "
+                                "listens: pick one in Recognition and set Task to 'Translate to English'. "
+                                "Whisper Turbo can't translate.")
         layout = QVBoxLayout(self)
         layout.addLayout(form)
         layout.addWidget(privacy)
-        layout.addWidget(tip)
+        layout.addWidget(self.whisper_tip)
         layout.addStretch(1)
 
     def _spec(self) -> TranslationModel | None:
@@ -1699,17 +1708,24 @@ class TranslationTab(_Tab):
 
     def _load(self) -> None:
         t = self._cfg.translation
+        # A language this version doesn't know shows as English; Apply saves that.
+        self.target_combo.setCurrentIndex(max(self.target_combo.findData(t.target), 0))
+        t.target = self.target_combo.currentData()
         self._fill_models()
         self.foreign_check.setChecked(bool(t.only_foreign))
         self._update_details()
 
     def _fill_models(self) -> None:
+        target = self._cfg.translation.target
         self.model_combo.clear()
         self.model_combo.addItem("Off", "")
         for spec in TRANSLATION_MODELS:
+            if not spec.writes(target):
+                continue
             have = "" if is_model_downloaded(spec) else f" · {spec.size_mb:,} MB download"
-            self.model_combo.addItem(spec.name + have, spec.id)
-        # A model this version doesn't know (or an old setting) shows as Off; Apply saves that.
+            self.model_combo.addItem(spec.label(target) + have, spec.id)
+        # A model this version doesn't know, or one that can't write the target language (or an
+        # old setting) shows as Off; Apply saves that.
         index = self.model_combo.findData(self._cfg.translation.model)
         self.model_combo.setCurrentIndex(max(index, 0))
         self._cfg.translation.model = self.model_combo.currentData()
@@ -1726,10 +1742,12 @@ class TranslationTab(_Tab):
         spec = self._spec()
         self.details.setVisible(spec is not None)
         self.foreign_check.setEnabled(spec is not None)
+        target = TARGETS[self._cfg.translation.target]
+        self.whisper_tip.setVisible(target == "English")
         if spec is not None:
             language = spec.name.split(" →")[0]
-            self.foreign_check.setText(f"Only {language} lines (skip English and other languages)"
-                                       if spec.language else "Skip lines that are already in English")
+            self.foreign_check.setText(f"Only {language} lines (skip {target} and other languages)"
+                                       if spec.language else f"Skip lines that are already in {target}")
             self.size_label.setText(f"about {spec.size_mb:,} MB")
             self.status_label.setText("Downloaded" if is_model_downloaded(spec)
                                       else f"Will download ~{spec.size_mb:,} MB when applied")
@@ -1741,6 +1759,8 @@ class TranslationTab(_Tab):
 
     def _recognition_problem(self) -> str:
         """Why the captions can't contain anything to translate, if they can't."""
+        if self._cfg.translation.target != "en":  # English captions are what gets translated then
+            return ""
         asr = self._cfg.asr
         try:
             spec = get_model(asr.model)
@@ -1757,6 +1777,19 @@ class TranslationTab(_Tab):
             return ("Recognition › Language is English, so other languages come out as English-sounding words. "
                     "Set it to Auto-detect or to the language being spoken.")
         return ""
+
+    def _on_target_changed(self, _index: int) -> None:
+        if self._loading:
+            return
+        t = self._cfg.translation
+        t.target = self.target_combo.currentData()
+        had = t.model
+        with self._quiet():
+            self._fill_models()  # only the models that write this language
+        if had and not t.model and self.model_combo.count() > 1:
+            # The model can't write it: switch to one that can (Status says if that downloads).
+            self.model_combo.setCurrentIndex(1)
+        self._update_details()
 
     def _on_model_changed(self, _index: int) -> None:
         if not self._loading:

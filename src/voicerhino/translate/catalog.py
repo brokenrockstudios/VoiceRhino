@@ -1,10 +1,11 @@
-"""Translation models VoiceRhino can download and run on this PC (into English).
+"""Translation models VoiceRhino can download and run on this PC.
 
 Two kinds, both offline once downloaded:
   - "opus_mt": OPUS-MT (University of Helsinki) models converted to CTranslate2, one per
-    language; small and fast, they run inside VoiceRhino.
-  - "hy_mt": Tencent's Hy-MT2 1.8B, one model for 33 languages; better, but heavier. It runs in
-    llama.cpp's llama-server, started as a hidden process that only listens on 127.0.0.1.
+    language, into English only; small and fast, they run inside VoiceRhino.
+  - "hy_mt": Tencent's Hy-MT2 1.8B, one model for 33 languages, into any of TARGETS; better, but
+    heavier. It runs in llama.cpp's llama-server, started as a hidden process that only listens
+    on 127.0.0.1.
 """
 
 from __future__ import annotations
@@ -22,17 +23,28 @@ OPUS_NOTE = ("Small and fast: about 0.05-0.1 s a line on one CPU core, ~0.15 GB 
 MULTI_NOTE = ("One model for many languages, so noticeably rougher than the one-language models. "
               "Just as light: about 0.05-0.1 s a line on one CPU core.")
 
+# Languages translations can be written in (TranslationConfig.target). Into English every model
+# works; into the others only Hy-MT2 (llama.PROMPTS has its instruction for each).
+TARGETS = {"en": "English", "zh": "Simplified Chinese", "zh-Hant": "Traditional Chinese", "es": "Spanish"}
+
 
 @dataclass(frozen=True)
 class TranslationModel:
     id: str  # stable key stored in config.json
-    name: str  # dropdown label
+    name: str  # dropdown label; "{target}" = the language it translates into, see label()
     kind: str  # "opus_mt" or "hy_mt"
     language: str  # code of the language it translates from; "" = any (it tells them apart itself)
     size_mb: int  # approximate download size
     downloads: tuple[str, ...]  # opus_mt: one repo's files; hy_mt: the .gguf and llama.cpp's zip
     license: str
     notes: str = ""
+    into: str = "en"  # TARGETS code of the language it writes; "" = any of them
+
+    def label(self, target: str = "en") -> str:
+        return self.name.format(target=TARGETS.get(target, "English"))
+
+    def writes(self, target: str) -> bool:
+        return target in TARGETS and self.into in ("", target)
 
     @property
     def folder(self) -> str:
@@ -63,8 +75,8 @@ TRANSLATION_MODELS: list[TranslationModel] = [
     _opus("pt", "Portuguese", 158, repo_lang="mul", notes=MULTI_NOTE),
     _opus("mul", "Other languages", 158, notes=MULTI_NOTE),
     TranslationModel(
-        id="hy-mt2-1.8b-q4", name="Any language → English (Hy-MT2 1.8B, better, heavier)", kind="hy_mt",
-        language="", size_mb=1157,
+        id="hy-mt2-1.8b-q4", name="Any language → {target} (Hy-MT2 1.8B, better, heavier)", kind="hy_mt",
+        language="", size_mb=1157, into="",
         downloads=(f"{HF}tencent/Hy-MT2-1.8B-GGUF/resolve/main/Hy-MT2-1.8B-Q4_K_M.gguf", LLAMA_CPP),
         license="Apache-2.0 (model), MIT (llama.cpp)",
         notes="Clearly better translations, and one model covers 33 languages (Chinese, Japanese, "

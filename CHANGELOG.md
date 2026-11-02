@@ -5,6 +5,10 @@ What changed in each VoiceRhino release. Download releases from the
 
 ## 0.1.2 (unreleased)
 
+- **Translate into Chinese or Spanish.** Settings › Translation › _Translate into_ can now be
+  Simplified Chinese, Traditional Chinese or Spanish as well as English, e.g. for a friend who
+  reads Chinese while you talk in English. Translating into those uses the Hy-MT2 model (Opus-MT
+  only translates into English); lines already in that language are left as they are.
 - **Discord names work again.** Discord started refusing VoiceRhino's sign-in request ("Redirect
   URI cannot be used in the RPC OAuth2 Authorization flow"), so the approval popup never
   appeared and the tray kept saying it was retrying. If the Developer Portal app has no

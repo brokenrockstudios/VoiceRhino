@@ -349,6 +349,8 @@ class Controller(QObject):
             except KeyError:
                 self._set_status(f"Unknown translation model {self.config.translation.model!r}: "
                                  "pick one in Settings › Translation", 20)
+            except ValueError as exc:  # a model that can't write the chosen language
+                self._set_status(f"{exc}: pick another in Settings › Translation", 20)
 
     def _on_utterance(self, utt: Utterance) -> None:
         # Captions only ever live in memory (TranscriptStore): nothing anyone says is written to

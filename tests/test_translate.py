@@ -21,8 +21,9 @@ from voicerhino.paths import models_dir
 from voicerhino.transcript import TranscriptStore, Utterance
 from voicerhino.translate import (TranslationConfig, TranslationWorker, Translator, _differs,
                                   guess_languages, is_model_downloaded, wanted)
-from voicerhino.translate.catalog import OPUS_FILES, TRANSLATION_MODELS, download_names, get_translation_model
-from voicerhino.translate.llama import HyMTTranslator
+from voicerhino.translate.catalog import (OPUS_FILES, TARGETS, TRANSLATION_MODELS, download_names,
+                                          get_translation_model)
+from voicerhino.translate.llama import PROMPTS, HyMTTranslator
 
 HY = get_translation_model("hy-mt2-1.8b-q4")
 
@@ -53,6 +54,16 @@ def test_wanted_lines():
     assert wanted(english, "zh", only_foreign=False)
 
 
+def test_wanted_lines_into_other_languages():
+    chinese, english, spanish = "你好，我们去中路", "Nice, I'm going mid.", "Vamos a la torre"
+    # Into Chinese or Spanish, English lines are the ones to translate; lines already in it aren't.
+    assert wanted(english, "", target="zh") and wanted(spanish, "", target="zh") and not wanted(chinese, "", target="zh")
+    assert wanted(english, "", target="es") and wanted(chinese, "", target="es") and not wanted(spanish, "", target="es")
+    # Simplified and Traditional look alike to the guess, so into Traditional, Chinese lines go too.
+    assert wanted(chinese, "", target="zh-Hant") and wanted(english, "", target="zh-Hant")
+    assert not wanted("GG", "", target="zh")
+
+
 def test_differs():
     assert _differs("Hello, let's go mid", "你好，我们去中路")
     assert not _differs("Nice shot.", "nice shot")  # an echo, not a translation
@@ -63,10 +74,14 @@ def test_catalog():
     ids = [m.id for m in TRANSLATION_MODELS]
     assert len(ids) == len(set(ids))
     for m in TRANSLATION_MODELS:
-        assert m.size_mb > 0 and m.license and m.notes and "→ English" in m.name
+        assert m.size_mb > 0 and m.license and m.notes and "→ English" in m.label()
+        assert m.writes("en") and m.writes("zh") == (m.kind == "hy_mt")  # only Hy-MT2 writes other languages
         if m.kind == "opus_mt":
             assert [u.rsplit("/", 1)[-1] for u in m.downloads] == list(OPUS_FILES)
             assert all(u.startswith("https://huggingface.co/gaudi/") for u in m.downloads)
+    assert HY.label("zh").startswith("Any language → Simplified Chinese (Hy-MT2")
+    assert set(PROMPTS) == set(TARGETS) and all(p.endswith("\n\n{text}") for p in PROMPTS.values())
+    assert not HY.writes("fr")  # not a language VoiceRhino offers
     assert get_translation_model("opus-mt-zh-en").folder == "opus-mt-zh-en-ctranslate2"
     portuguese, other = get_translation_model("opus-mt-pt-en"), get_translation_model("opus-mt-mul-en")
     assert portuguese.folder == other.folder and (portuguese.language, other.language) == ("pt", "")
@@ -106,7 +121,7 @@ def wait_for(condition, timeout: float = 5.0) -> bool:
 def test_worker_translates_wanted_lines_only():
     store, fake, statuses = TranscriptStore(), FakeTranslator(), []
     worker = TranslationWorker(store, TranslationConfig(model="opus-mt-zh-en"), statuses.append,
-                               loader=lambda spec, progress, cancel: fake)
+                               loader=lambda spec, progress, cancel, target: fake)
     for i, text in enumerate(["你好，我们去中路", "Already English.", "小心后面", "老了"], 1):
         utt = final(i, text, age=120 if text == "老了" else 1)  # the last one waited too long
         store.push(utt)
@@ -122,7 +137,7 @@ def test_worker_translates_wanted_lines_only():
 
 
 def test_worker_reports_a_model_that_wont_load():
-    def broken(spec, progress, cancel):
+    def broken(spec, progress, cancel, target):
         raise OSError("disk full")
 
     worker = TranslationWorker(TranscriptStore(), TranslationConfig(model="opus-mt-zh-en"), loader=broken)
@@ -134,7 +149,7 @@ def test_worker_reports_a_model_that_wont_load():
 def test_stopping_cancels_a_download():
     started = threading.Event()
 
-    def slow(spec, progress, cancel):
+    def slow(spec, progress, cancel, target):
         started.set()
         while not cancel.wait(0.01):
             pass
@@ -150,6 +165,31 @@ def test_stopping_cancels_a_download():
 def test_unknown_model_is_refused():
     with pytest.raises(KeyError):
         TranslationWorker(TranscriptStore(), TranslationConfig(model="qwen2.5:7b"))
+
+
+def test_worker_into_chinese():
+    store, fake, statuses, targets = TranscriptStore(), FakeTranslator(), [], []
+
+    def load(spec, progress, cancel, target):
+        targets.append(target)
+        return fake
+
+    worker = TranslationWorker(store, TranslationConfig(model="hy-mt2-1.8b-q4", target="zh"),
+                               statuses.append, loader=load)
+    for i, text in enumerate(["Watch out behind you.", "你好，我们去中路"], 1):
+        store.push(final(i, text))
+        worker.submit(store.finals()[-1])
+    assert wait_for(lambda: fake.seen)
+    worker.stop()
+    assert targets == ["zh"] and fake.seen == ["Watch out behind you."]  # the Chinese line wasn't sent
+    assert "Translation ready: Any language → Simplified Chinese" in statuses
+
+
+def test_models_that_cant_write_the_target_are_refused():
+    with pytest.raises(ValueError, match="can't translate into Simplified Chinese"):
+        TranslationWorker(TranscriptStore(), TranslationConfig(model="opus-mt-zh-en", target="zh"))
+    with pytest.raises(ValueError, match="'fr'"):
+        TranslationWorker(TranscriptStore(), TranslationConfig(model="hy-mt2-1.8b-q4", target="fr"))
 
 
 # --------------------------------------------------------------- downloads ---
@@ -226,6 +266,18 @@ def test_hy_mt_request_never_uses_a_proxy(monkeypatch):
     assert "into English" in body["messages"][0]["content"]
 
 
+@pytest.mark.parametrize("target, words", [("zh", "翻译为中文"), ("zh-Hant", "翻译为繁体中文"), ("es", "into Spanish")])
+def test_hy_mt_asks_for_the_target_language(target, words):
+    httpd = HTTPServer(("127.0.0.1", 0), _Chat)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        HyMTTranslator(f"http://127.0.0.1:{httpd.server_port}", "secret", target=target).translate("Let's go mid.")
+    finally:
+        httpd.shutdown()
+    content = _Chat.requests[-1][2]["messages"][0]["content"]
+    assert words in content and content.endswith("\n\nLet's go mid.")
+
+
 def test_llama_server_that_exits_is_reported(tmp_path):
     with pytest.raises(RuntimeError, match="exited"):  # python rejects llama-server's arguments
         HyMTTranslator.start(Path(sys.executable), tmp_path / "model.gguf", timeout=20)
@@ -254,6 +306,18 @@ def test_real_hy_mt2_translates_on_loopback_only():
     finally:
         t.close()
     assert not proc.is_running() or proc.status() == psutil.STATUS_ZOMBIE
+
+
+@needs_hy
+def test_real_hy_mt2_into_chinese_and_spanish():
+    exe, model = _hy_paths()
+    line = "Hold on, my mic is acting up again."
+    for target, expected in [("zh", "麦克风"), ("zh-Hant", "麥克風"), ("es", "micrófono")]:
+        t = HyMTTranslator.start(exe, model, target=target)
+        try:
+            assert expected in t.translate(line)
+        finally:
+            t.close()
 
 
 @needs_hy

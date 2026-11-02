@@ -552,6 +552,36 @@ def test_translation_tab_picks_a_local_model():
     assert (emitted[-1].translation.model, emitted[-1].translation.only_foreign) == ("hy-mt2-1.8b-q4", False)
 
 
+def test_translation_tab_into_another_language():
+    cfg = AppConfig()
+    cfg.translation.model = "opus-mt-zh-en"
+    dialog, emitted = make_dialog(cfg)
+    tab = dialog.translation_tab
+    assert tab.target_combo.currentText() == "English" and tab.whisper_tip.isVisibleTo(tab)
+    tab.target_combo.setCurrentIndex(tab.target_combo.findData("zh"))
+    # Opus-MT only writes English: only Hy-MT2 is left, and it's picked instead.
+    labels = [tab.model_combo.itemText(i) for i in range(tab.model_combo.count())]
+    assert labels[0] == "Off" and len(labels) == 2 and labels[1].startswith("Any language → Simplified Chinese")
+    assert tab.model_combo.currentData() == "hy-mt2-1.8b-q4"
+    assert tab.foreign_check.text() == "Skip lines that are already in Simplified Chinese"
+    assert tab.recognition_warning.isHidden()  # English-only recognition is right for this
+    assert not tab.whisper_tip.isVisibleTo(tab)  # Whisper only translates into English
+    dialog.apply()
+    assert (emitted[-1].translation.target, emitted[-1].translation.model) == ("zh", "hy-mt2-1.8b-q4")
+    tab.target_combo.setCurrentIndex(tab.target_combo.findData("es"))
+    dialog.apply()
+    assert (emitted[-1].translation.target, emitted[-1].translation.model) == ("es", "hy-mt2-1.8b-q4")
+    cfg = AppConfig()
+    cfg.translation.model, cfg.translation.target = "opus-mt-zh-en", "zh"  # e.g. edited by hand
+    dialog, emitted = make_dialog(cfg)
+    assert dialog.translation_tab.model_combo.currentText() == "Off"
+    cfg = AppConfig()
+    cfg.translation.target = "fr"  # a language this version doesn't offer: shows and saves as English
+    dialog, emitted = make_dialog(cfg)
+    dialog.apply()
+    assert emitted[-1].translation.target == "en"
+
+
 def test_translation_tab_shows_downloads_and_recognition_hints():
     folder = models_dir() / "opus-mt-zh-en-ctranslate2"  # the test's temporary models folder
     folder.mkdir(parents=True)

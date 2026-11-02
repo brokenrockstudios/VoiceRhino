@@ -68,7 +68,7 @@ def test_old_network_translation_settings_are_dropped(tmp_path):
     old["translation"] = {"enabled": True, "backend": "deepl", "target": "English", "only_foreign": False,
                           "base_url": "https://api-free.deepl.com", "model": "qwen2.5:7b", "api_key": "abc:fx"}
     cfg = config_io.load(write(tmp_path, old))
-    assert asdict(cfg.translation) == {"model": "", "only_foreign": False}
+    assert asdict(cfg.translation) == {"model": "", "only_foreign": False, "target": "en"}
     config_io.save(cfg, tmp_path / "config.json")
     assert "abc:fx" not in (tmp_path / "config.json").read_text(encoding="utf-8")
 

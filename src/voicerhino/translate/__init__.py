@@ -1,4 +1,5 @@
-"""Optional translation of finalized captions into English, entirely on this PC.
+"""Optional translation of finalized captions (into English or another catalog.TARGETS language),
+entirely on this PC.
 
 Runs on its own thread so slow translators never delay captions; the translation is
 attached to the utterance afterwards via TranscriptStore.update. The models (see
@@ -22,7 +23,7 @@ from typing import Callable
 from ..asr.download import (DownloadCancelled, ensure_download, ensure_folder, is_downloaded,
                             is_folder_downloaded)
 from ..transcript import TranscriptStore, Utterance
-from .catalog import TranslationModel, get_translation_model
+from .catalog import TARGETS, TranslationModel, get_translation_model
 
 log = logging.getLogger(__name__)
 
@@ -32,9 +33,10 @@ STALE_AFTER = 60.0  # s; a line still waiting this long is skipped (the history 
 @dataclass
 class TranslationConfig:
     model: str = ""  # translate.catalog id; "" = off
-    # Translate only lines in the model's language (any non-English language for multilingual
+    # Translate only lines in the model's language (any language but the target for multilingual
     # models). Off: every line, e.g. when the guess gets a language wrong.
     only_foreign: bool = True
+    target: str = "en"  # catalog.TARGETS code: the language translations are written in
 
 
 class Translator(ABC):
@@ -110,12 +112,17 @@ def guess_languages(text: str) -> set[str]:
     return {lang for lang, s in score.items() if s == best} if best else set()
 
 
-def wanted(text: str, language: str, only_foreign: bool = True) -> bool:
-    """Whether a model that translates `language` ("" = any) should get this line."""
+# guess_languages can't tell Simplified from Traditional Chinese, so into Traditional, Chinese lines
+# go too (Hy-MT2 rewrites Simplified ones; Traditional ones come back unchanged and aren't shown).
+_ALREADY_IN = {"zh-Hant": ""}
+
+
+def wanted(text: str, language: str, only_foreign: bool = True, target: str = "en") -> bool:
+    """Whether a model that translates `language` ("" = any) into `target` should get this line."""
     if not only_foreign:
         return True
     found = guess_languages(text)
-    if not found or "en" in found:
+    if not found or _ALREADY_IN.get(target, target) in found:
         return False
     return not language or language in found
 
@@ -139,9 +146,9 @@ def preload_runtime() -> None:
         log.exception("couldn't load CTranslate2")
 
 
-def load_translator(spec: TranslationModel, progress=None,
-                    cancel: threading.Event | None = None) -> Translator:
-    """Download (first time only) and start the model."""
+def load_translator(spec: TranslationModel, progress=None, cancel: threading.Event | None = None,
+                    target: str = "en") -> Translator:
+    """Download (first time only) and start the model, translating into `target`."""
     if spec.kind == "opus_mt":
         from .opus import OpusMTTranslator
 
@@ -151,7 +158,7 @@ def load_translator(spec: TranslationModel, progress=None,
 
         model = ensure_download(spec.downloads[0], progress, cancel)
         runtime = ensure_download(spec.downloads[1], progress, cancel)
-        return HyMTTranslator.start(runtime / "llama-server.exe", model, cancel=cancel)
+        return HyMTTranslator.start(runtime / "llama-server.exe", model, cancel=cancel, target=target)
     raise ValueError(f"unknown translation model kind {spec.kind!r}")
 
 
@@ -164,6 +171,10 @@ class TranslationWorker:
         self.store = store
         self.config = config
         self.spec = get_translation_model(config.model)  # KeyError: not a model this version knows
+        if not self.spec.writes(config.target):
+            raise ValueError(f"{self.spec.label()} can't translate into "
+                             f"{TARGETS.get(config.target, repr(config.target))}")
+        self.name = self.spec.label(config.target)
         self.error: str | None = None
         self._on_status = on_status or (lambda _text: None)
         self._loader = loader
@@ -177,7 +188,7 @@ class TranslationWorker:
     def submit(self, utt: Utterance) -> None:
         if not utt.final or not utt.text or utt.translation:
             return
-        if not wanted(utt.text, self.spec.language, self.config.only_foreign):
+        if not wanted(utt.text, self.spec.language, self.config.only_foreign, self.config.target):
             return
         try:
             self._queue.put_nowait(utt)
@@ -200,14 +211,14 @@ class TranslationWorker:
     def _progress(self, done: int, total: int) -> None:
         if total and time.monotonic() - self._last_progress > 0.5:
             self._last_progress = time.monotonic()
-            self._on_status(f"Downloading {self.spec.name}: {done / total:.0%} of {total / 1e6:.0f} MB")
+            self._on_status(f"Downloading {self.name}: {done / total:.0%} of {total / 1e6:.0f} MB")
 
     def _run(self) -> None:
-        name = self.spec.name.split(" (")[0]
+        name = self.name.split(" (")[0]
         try:
             if not is_model_downloaded(self.spec):
                 self._on_status(f"Downloading {name}…")
-            self._translator = self._loader(self.spec, self._progress, self._cancel)
+            self._translator = self._loader(self.spec, self._progress, self._cancel, self.config.target)
         except DownloadCancelled:
             return
         except Exception as exc:

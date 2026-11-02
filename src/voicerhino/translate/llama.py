@@ -26,8 +26,13 @@ from . import Translator
 
 log = logging.getLogger(__name__)
 
-PROMPT = ("Translate the following text into English. Note that you should only output the "
-          "translated result without any additional explanation:\n\n{text}")
+# Hy-MT2's instruction per catalog.TARGETS code. Into Chinese it's asked in Chinese: asked in
+# English for Traditional Chinese, it mixed in Simplified characters.
+_INTO = ("Translate the following text into {language}. Note that you should only output the "
+         "translated result without any additional explanation:\n\n{{text}}")
+_INTO_CHINESE = "将以下文本翻译为{language}，注意只需要输出翻译后的结果，不要额外解释：\n\n{{text}}"
+PROMPTS = {"en": _INTO.format(language="English"), "es": _INTO.format(language="Spanish"),
+           "zh": _INTO_CHINESE.format(language="中文"), "zh-Hant": _INTO_CHINESE.format(language="繁体中文")}
 THREADS = 4
 START_TIMEOUT = 120.0  # s; loading the model from a slow disk can take a while
 
@@ -76,8 +81,10 @@ RUNNING: set[int] = set()  # pids of llama-servers we started, counted in our re
 
 
 class HyMTTranslator(Translator):
-    def __init__(self, url: str, key: str, proc: subprocess.Popen | None = None, job: int | None = None):
+    def __init__(self, url: str, key: str, proc: subprocess.Popen | None = None, job: int | None = None,
+                 target: str = "en"):
         self.url = url
+        self._prompt = PROMPTS[target]
         self._key = key
         self._proc = proc
         self._job = job
@@ -86,7 +93,8 @@ class HyMTTranslator(Translator):
 
     @classmethod
     def start(cls, exe: Path, model: Path, threads: int = THREADS,
-              cancel: threading.Event | None = None, timeout: float = START_TIMEOUT) -> "HyMTTranslator":
+              cancel: threading.Event | None = None, timeout: float = START_TIMEOUT,
+              target: str = "en") -> "HyMTTranslator":
         port, key = _free_port(), secrets.token_hex(16)
         args = [str(exe), "--model", str(model), "--host", "127.0.0.1", "--port", str(port),
                 "--api-key", key, "--threads", str(threads), "--ctx-size", "2048", "--parallel", "1",
@@ -98,7 +106,7 @@ class HyMTTranslator(Translator):
         RUNNING.add(proc.pid)
         tail: collections.deque[str] = collections.deque(maxlen=15)
         threading.Thread(target=_drain, args=(proc, tail), name="llama-server-output", daemon=True).start()
-        self = cls(f"http://127.0.0.1:{port}", key, proc, job)
+        self = cls(f"http://127.0.0.1:{port}", key, proc, job, target)
         deadline = time.monotonic() + timeout
         try:
             while not self._healthy():
@@ -124,7 +132,7 @@ class HyMTTranslator(Translator):
 
     def translate(self, text: str) -> str:
         payload = {
-            "messages": [{"role": "user", "content": PROMPT.format(text=text)}],
+            "messages": [{"role": "user", "content": self._prompt.format(text=text)}],
             # Hy-MT2's recommended sampling, but cooler: captions should read the same each time.
             "temperature": 0.2, "top_p": 0.6, "top_k": 20, "repeat_penalty": 1.05,
             "max_tokens": min(512, 3 * len(text) + 32),

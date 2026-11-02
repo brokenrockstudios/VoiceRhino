@@ -186,6 +186,13 @@ no accounts, no keys, nothing sent anywhere. Pick one option; it downloads the f
 | _Language_ → English (Opus-MT): Chinese, Japanese, Korean, Spanish, French, German, Italian, Russian; Portuguese and _Other languages_ use one multilingual model | 150–180 MB each             | 0.05–0.1 s a line on one CPU core                                                                                            | fine for short, everyday sentences, rough on slang; the multilingual model is rougher |
 | Any language → English (Hy-MT2 1.8B)                                                                                                                              | 1.16 GB (model + llama.cpp) | each line keeps 4 CPU cores busy for 0.3–0.8 s on a fast CPU (Ryzen 9 9950X3D), longer on older ones; holds 1–2 GB of memory | clearly better; 33 languages                                                          |
 
+_Translate into_ can also be Simplified Chinese, Traditional Chinese or Spanish, for someone
+who reads that language: say a Chinese-speaking friend runs VoiceRhino on their PC, with
+Parakeet (English) for Recognition and _Translate into_ set to Simplified Chinese, while you
+talk in English. Into those languages only Hy-MT2 translates, and any other language comes out
+in the chosen one too. Gaming slang is where it slips most ("cover me" and "mid lane" can come
+out literally).
+
 Hy-MT2 can cost frames in CPU-heavy games while it translates; it runs at low priority so
 captions come first, but Opus-MT is the safe choice for gaming. Recognition has to write the
 other language first, so pick a model for that language in Settings → Recognition (the

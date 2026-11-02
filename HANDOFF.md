@@ -18,7 +18,8 @@ latency on synthetic TTS speech, loopback capture, per-app capture of the real D
 
 - Discord **names** with a real account (needs their own developer app; `docs/discord-setup.md`).
 - Translation beyond Opus-MT zh→English and Hy-MT2. The other Opus-MT repos were only checked to exist;
-  Hy-MT2 speed was measured on this 9950X3D only.
+  Hy-MT2 speed was measured on this 9950X3D only. Hy-MT2 into Chinese / Spanish was only checked on a
+  handful of typed English lines, not on a real session.
 - How accuracy feels on real Discord audio. The quiet-audio boost and the −55 dBFS warning were tuned
   on TTS turned down digitally, not on real volume settings.
 - `run.bat`'s first-time uv + Python bootstrap (sandbox issue, §3); installs on other PCs suggest it's fine.
@@ -101,7 +102,10 @@ Commands are in `CLAUDE.md`. Extras:
   `redirect_uri` (Discord refuses it; only the token exchange sends `http://localhost`); token cached and refreshed; own voice ignored.
 - **Translation is offline only** ("nothing is ever sent" must stay true; third-party sending raises consent
   questions): Opus-MT X→English (~160 MB each, CTranslate2) or Hy-MT2 1.8B Q4_K_M via a hidden llama-server.
-  Finals only, never audio. English and unsure lines are skipped.
+  Finals only, never audio. Lines already in the target language and unsure lines are skipped.
+  `translation.target` (catalog.TARGETS: en, zh, zh-Hant, es) picks the language written; only Hy-MT2
+  writes non-English. Its instruction into Chinese is in Chinese (llama.PROMPTS): asked in English for
+  Traditional, it mixed in Simplified characters.
 - **No saved transcripts** (user's decision; recording laws need all-party consent). Captions live in
   `TranscriptStore` memory only. Don't add export/save back without the user deciding it.
 
