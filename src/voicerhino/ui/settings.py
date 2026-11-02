@@ -1694,7 +1694,7 @@ class TranslationTab(_Tab):
                        "accounts or keys. Finished lines show their translation under (history) or "
                        "instead of (captions) the original.")
         self.whisper_tip = Hint("With a GPU, Whisper Medium or Large v3 can also translate into English as it "
-                                "listens: pick one in Recognition and set Task to 'Translate to English'. "
+                                "listens: pick one in Speech recognition and set Task to 'Translate to English'. "
                                 "Whisper Turbo can't translate.")
         layout = QVBoxLayout(self)
         layout.addLayout(form)
@@ -1734,7 +1734,7 @@ class TranslationTab(_Tab):
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
-        with self._quiet():  # models may have been deleted on the General tab, or Recognition changed
+        with self._quiet():  # models may have been deleted on the General tab, or Speech recognition changed
             self._fill_models()
         self._update_details()
 
@@ -1767,14 +1767,14 @@ class TranslationTab(_Tab):
         except KeyError:
             return ""
         if asr.task == "translate" and spec.can_translate:
-            return ("Whisper already turns the speech into English (Recognition › Task), so there's "
+            return ("Whisper already turns the speech into English (Speech recognition › Task), so there's "
                     "nothing left to translate.")
         if spec.languages == "English":
             return (f"The recognition model ({spec.name.split(' (')[0]}) only writes English, so there's "
-                    "nothing to translate. In Recognition, pick one for the language being spoken: "
+                    "nothing to translate. In Speech recognition, pick one for the language being spoken: "
                     "SenseVoice for Chinese, Japanese or Korean, Parakeet v3 for European languages, or Whisper.")
         if asr.language == "en":
-            return ("Recognition › Language is English, so other languages come out as English-sounding words. "
+            return ("Speech recognition › Language is English, so other languages come out as English-sounding words. "
                     "Set it to Auto-detect or to the language being spoken.")
         return ""
 
@@ -1897,7 +1897,7 @@ class GeneralTab(_Tab):
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
-        self.refresh_downloads()  # the model choice may have changed on the Recognition tab
+        self.refresh_downloads()  # the model choice may have changed on the Speech recognition tab
         self.refresh_resources()
         self._resource_timer.start()
 
@@ -2066,7 +2066,7 @@ class SettingsDialog(QDialog):
                                    self.windows_tab, self.speakers_tab, self.translation_tab,
                                    self.general_tab]
         self.tabs = QTabWidget()
-        titles = ["Audio", "Recognition", "Timing", "Windows", "Speakers", "Translation", "General"]
+        titles = ["Audio", "Speech recognition", "Timing", "Windows", "Speakers", "Translation", "General"]
         for page, title in zip(self._pages, titles):
             self.tabs.addTab(page, title)
 

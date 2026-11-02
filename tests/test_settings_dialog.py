@@ -67,7 +67,7 @@ def test_apply_emits_edited_copy_and_leaves_original_alone():
     dialog, emitted = make_dialog(original)
     assert dialog.windowTitle() == "VoiceRhino Settings"
     assert [dialog.tabs.tabText(i) for i in range(dialog.tabs.count())] == [
-        "Audio", "Recognition", "Timing", "Windows", "Speakers", "Translation", "General"]
+        "Audio", "Speech recognition", "Timing", "Windows", "Speakers", "Translation", "General"]
 
     rec = dialog.recognition_tab
     rec.model_combo.setCurrentIndex(rec.model_combo.findData("moonshine-base-en-int8"))

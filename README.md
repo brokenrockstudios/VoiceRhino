@@ -8,7 +8,7 @@ Live captions. An accessibility tool for people who are deaf or hard-of-hearing
 (or who have auditory processing difficulties, or just need to read what's said),
 built first for deaf and hard-of-hearing gamers: big click-through captions over the game, a scrollback
 window for anything missed, captions from any audio device or a single app (e.g. only
-Discord), and voice recognition that runs on the CPU so the GPU stays free for games.
+Discord), and speech recognition that runs on the CPU so the GPU stays free for games.
 
 It also captions other languages and can [translate](#translation) them, still entirely on your
 PC: read a Chinese, Korean or Spanish teammate in English, or let a friend read your English in
@@ -68,7 +68,7 @@ packages.
   PCs it can cost a few FPS in demanding games; the Moonshine models are lighter.
 - **Memory:** roughly 1 GB free, plus about 0.7 GB more for word-by-word live text.
 - **Disk:** ~0.7 GB for the default model, more for each extra model you try
-  (sizes are in Settings → Recognition; Settings → General → _Downloaded models_ lists what's
+  (sizes are in Settings → Speech recognition; Settings → General → _Downloaded models_ lists what's
   on disk and deletes the ones you don't use).
 - **GPU:** not needed. The optional Whisper models need an NVIDIA GPU with 2–3 GB free VRAM.
 
@@ -87,7 +87,7 @@ shows VoiceRhino's own CPU, RAM and GPU use (the history window can show it too)
 | Keep your own mic out of the big captions | Settings → Windows → select the caption window → _Captions from_ (shown when there are 2+ sources)                                                          |
 | Bigger text, colors, outline, opacity     | Settings → Windows (background and text opacity each have a slider)                                                                                         |
 | Snappier or steadier captions             | Settings → Timing (live update interval, pause that ends a line, shortest speech)                                                                           |
-| Try another model                         | Settings → Recognition (downloads automatically)                                                                                                            |
+| Try another model                         | Settings → Speech recognition (downloads automatically)                                                                                                            |
 | Free disk space from models you tried     | Settings → General → _Downloaded models_: sizes, and _Delete all unused_ (a deleted model downloads again if you pick it later)                             |
 | Who's talking (colors/names)              | Settings → Speakers: voice-based colors, or Discord names ([setup](docs/discord-setup.md))                                                                  |
 | See how much CPU, RAM and GPU it uses     | Settings → General → _Resources_ (now, 1 and 5 min averages), or a line at the top of the history window (Settings → Windows → _Show VoiceRhino's CPU and memory use_) |
@@ -105,8 +105,8 @@ Right-click the tray icon → **Settings…**
       <b>Windows:</b> font, colors, outline, background and text opacity, lines shown, and which sources each window shows</td>
   </tr>
   <tr>
-    <td><img src="docs/images/settings-recognition.png" alt="Settings, Recognition tab: speech model, live text mode, CPU or GPU, language"><br>
-      <b>Recognition:</b> the speech model, live text mode, CPU or GPU, and language</td>
+    <td><img src="docs/images/settings-recognition.png" alt="Settings, Speech recognition tab: speech model, live text mode, CPU or GPU, language"><br>
+      <b>Speech recognition:</b> the speech model, live text mode, CPU or GPU, and language</td>
     <td><img src="docs/images/settings-translation.png" alt="Settings, Translation tab: Chinese to English with Opus-MT"><br>
       <b>Translation:</b> other languages into English, on your PC</td>
   </tr>
@@ -158,14 +158,14 @@ Large v3 Turbo model.
 **Live text** (the words still being spoken) is re-decoded by default: Parakeet rereads the line
 every 0.4 s. That's the lightest option and the quickest to show the first word (about 0.3 s),
 but words can change as it hears more. When the person pauses, Parakeet writes the finished
-line with proper punctuation. Settings → Recognition → _Live text_ can switch to **word-by-word**:
+line with proper punctuation. Settings → Speech recognition → _Live text_ can switch to **word-by-word**:
 a second, streaming model (NVIDIA Nemotron Streaming, also CPU, ~650 MB download) writes each
 word once and never changes it, so the line only grows, for about 0.1 more CPU core and 0.7 GB
 more memory, with the first word after about 0.6 s. Word-by-word is English-only.
 
-For other languages, set Settings → Recognition → _Language_ to **Auto-detect** (picking a
+For other languages, set Settings → Speech recognition → _Language_ to **Auto-detect** (picking a
 multilingual model does this for you) or to the language being spoken: left on English, models
-like SenseVoice force other languages into English-sounding words. Voice recognition never translates;
+like SenseVoice force other languages into English-sounding words. Speech recognition never translates;
 for English text from another language, use Settings → Translation or Whisper's Translate task.
 
 | Model                          | Languages                                             | Runs on | Notes                                                    |
@@ -192,14 +192,14 @@ no accounts, no keys, nothing sent anywhere. Pick one option; it downloads the f
 
 _Translate into_ can also be Simplified Chinese, Traditional Chinese or Spanish, for someone
 who reads that language: say a Chinese-speaking friend runs VoiceRhino on their PC, with
-Parakeet (English) for voice recognition and _Translate into_ set to Simplified Chinese, while you
+Parakeet (English) for speech recognition and _Translate into_ set to Simplified Chinese, while you
 talk in English. Into those languages only Hy-MT2 translates, and any other language comes out
 in the chosen one too. Gaming slang is where it slips most ("cover me" and "mid lane" can come
 out literally).
 
 Hy-MT2 can cost frames in CPU-heavy games while it translates; it runs at low priority so
-captions come first, but Opus-MT is the safe choice for gaming. Voice recognition has to write the
-other language first, so pick a model for that language in Settings → Recognition (the
+captions come first, but Opus-MT is the safe choice for gaming. Speech recognition has to write the
+other language first, so pick a model for that language in Settings → Speech recognition (the
 Translation tab warns when the current one only writes English). Only lines that look like the
 chosen language are translated by default, never English ones. A translation shows under its line
 in the history window and replaces it in the caption window.
@@ -323,7 +323,7 @@ by anyone.
   [Games, anti-cheat and competitive play](#games-anti-cheat-and-competitive-play)), and the
   licenses of any models or online services you choose to use.
 - **Translations can be wrong too**, more often than captions: they come from small models
-  working on what voice recognition heard, mistakes included.
+  working on what speech recognition heard, mistakes included.
 - **Third-party services** you turn on (Discord) have their own terms and privacy policies.
 
 Product names such as Windows, Discord, NVIDIA and Whisper are trademarks of their
@@ -335,7 +335,7 @@ owners and are used only to describe compatibility.
   listening to X, errors). Check Settings → Audio points at the device you actually hear.
 - **Headset unplugged:** it reconnects automatically when plugged back in.
 - **No translations:** the tray tooltip says "Translation ready" once the model has loaded, or
-  why it couldn't. Settings → Translation warns when the voice recognition model only writes English.
+  why it couldn't. Settings → Translation warns when the speech recognition model only writes English.
   If lines in the chosen language are skipped, untick the checkbox under the model there.
 - **Logs:** `%LOCALAPPDATA%\VoiceRhino\logs\voicerhino.log`.
 - **Terminal mode** (prints captions, handy for debugging):

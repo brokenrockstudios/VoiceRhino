@@ -17,6 +17,7 @@ What changed in each VoiceRhino release. Download releases from the
 - **Left-aligned captions.** Settings › Windows › Alignment can put a caption window's lines at
   the left edge, so new words are added at the end and the words already shown stay where they
   are. Center stays the default.
+- The Settings tab for the speech model is now called **Speech recognition** (was Recognition).
 - Settings › Windows lists all caption windows first, then all history windows, instead of
   in the order they were added.
 - Settings opens a little wider, so the history window's "ask everyone" warning fits on one
