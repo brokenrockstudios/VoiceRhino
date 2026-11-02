@@ -8,7 +8,7 @@ Live captions. An accessibility tool for people who are deaf or hard-of-hearing
 (or who have auditory processing difficulties, or just need to read what's said),
 built first for deaf and hard-of-hearing gamers: big click-through captions over the game, a scrollback
 window for anything missed, captions from any audio device or a single app (e.g. only
-Discord), and recognition that runs on the CPU so the GPU stays free for games.
+Discord), and voice recognition that runs on the CPU so the GPU stays free for games.
 
 It also captions other languages and can [translate](#translation) them, still entirely on your
 PC: read a Chinese, Korean or Spanish teammate in English, or let a friend read your English in
@@ -165,7 +165,7 @@ more memory, with the first word after about 0.6 s. Word-by-word is English-only
 
 For other languages, set Settings → Recognition → _Language_ to **Auto-detect** (picking a
 multilingual model does this for you) or to the language being spoken: left on English, models
-like SenseVoice force other languages into English-sounding words. Recognition never translates;
+like SenseVoice force other languages into English-sounding words. Voice recognition never translates;
 for English text from another language, use Settings → Translation or Whisper's Translate task.
 
 | Model                          | Languages                                             | Runs on | Notes                                                    |
@@ -192,13 +192,13 @@ no accounts, no keys, nothing sent anywhere. Pick one option; it downloads the f
 
 _Translate into_ can also be Simplified Chinese, Traditional Chinese or Spanish, for someone
 who reads that language: say a Chinese-speaking friend runs VoiceRhino on their PC, with
-Parakeet (English) for Recognition and _Translate into_ set to Simplified Chinese, while you
+Parakeet (English) for voice recognition and _Translate into_ set to Simplified Chinese, while you
 talk in English. Into those languages only Hy-MT2 translates, and any other language comes out
 in the chosen one too. Gaming slang is where it slips most ("cover me" and "mid lane" can come
 out literally).
 
 Hy-MT2 can cost frames in CPU-heavy games while it translates; it runs at low priority so
-captions come first, but Opus-MT is the safe choice for gaming. Recognition has to write the
+captions come first, but Opus-MT is the safe choice for gaming. Voice recognition has to write the
 other language first, so pick a model for that language in Settings → Recognition (the
 Translation tab warns when the current one only writes English). Only lines that look like the
 chosen language are translated by default, never English ones. A translation shows under its line
@@ -323,7 +323,7 @@ by anyone.
   [Games, anti-cheat and competitive play](#games-anti-cheat-and-competitive-play)), and the
   licenses of any models or online services you choose to use.
 - **Translations can be wrong too**, more often than captions: they come from small models
-  working on what recognition heard, mistakes included.
+  working on what voice recognition heard, mistakes included.
 - **Third-party services** you turn on (Discord) have their own terms and privacy policies.
 
 Product names such as Windows, Discord, NVIDIA and Whisper are trademarks of their
@@ -335,7 +335,7 @@ owners and are used only to describe compatibility.
   listening to X, errors). Check Settings → Audio points at the device you actually hear.
 - **Headset unplugged:** it reconnects automatically when plugged back in.
 - **No translations:** the tray tooltip says "Translation ready" once the model has loaded, or
-  why it couldn't. Settings → Translation warns when the recognition model only writes English.
+  why it couldn't. Settings → Translation warns when the voice recognition model only writes English.
   If lines in the chosen language are skipped, untick the checkbox under the model there.
 - **Logs:** `%LOCALAPPDATA%\VoiceRhino\logs\voicerhino.log`.
 - **Terminal mode** (prints captions, handy for debugging):
