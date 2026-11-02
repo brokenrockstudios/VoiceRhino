@@ -10,6 +10,10 @@ built first for deaf and hard-of-hearing gamers: big click-through captions over
 window for anything missed, captions from any audio device or a single app (e.g. only
 Discord), and recognition that runs on the CPU so the GPU stays free for games.
 
+It also captions other languages and can [translate](#translation) them, still entirely on your
+PC: read a Chinese, Korean or Spanish teammate in English, or let a friend read your English in
+Chinese or Spanish.
+
 _Built in honor of a hard-of-hearing gaming friend, and for everyone who wants to follow the conversation._
 
 <p align="center">
