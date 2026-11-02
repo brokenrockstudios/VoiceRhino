@@ -3,7 +3,7 @@
 What changed in each VoiceRhino release. Download releases from the
 [Releases page](https://github.com/brokenrockstudios/VoiceRhino/releases).
 
-## 0.1.2 (unreleased)
+## 0.1.2 (2026-11-01)
 
 - **Translate into Chinese or Spanish.** Settings › Translation › _Translate into_ can now be
   Simplified Chinese, Traditional Chinese or Spanish as well as English, e.g. for a friend who
