@@ -12,7 +12,9 @@ from pathlib import Path
 from PySide6.QtCore import QLockFile, QObject, QTimer, Signal
 from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
+from .. import __version__, paths, updater
 from .. import config as config_io
+from ..asr import gpu_addon
 from ..asr.catalog import DEFAULT_MODEL_ID, VAD_MODELS, get_model, supports_live_model
 from ..asr.download import ensure_download, is_downloaded
 from ..asr.engines import Engine, EngineOptions, StreamingEngine, load_engine, load_streaming_engine
@@ -194,6 +196,8 @@ class Controller(QObject):
 
             try:
                 ensure_download(VAD_MODELS["silero"])
+                if spec.family == "faster_whisper":  # portable build: fetch the GPU add-on first
+                    gpu_addon.ensure(progress_for("the GPU add-on (faster-whisper + NVIDIA CUDA libraries)"))
                 engine = load_engine(spec, options, progress_for(what))
             except Exception as exc:
                 log.exception("loading %s failed", spec.id)
@@ -549,12 +553,19 @@ class Controller(QObject):
         self.save()
 
 
-def run_gui(reset: bool = False, file: Path | None = None) -> int:
+def run_gui(reset: bool = False, file: Path | None = None, updated: bool = False) -> int:
     app = QApplication.instance() or QApplication([])
     app.setApplicationName("VoiceRhino")
     app.setQuitOnLastWindowClosed(False)
     app.setWindowIcon(app_icon())
     apply_dark_theme(app)
+
+    if paths.running_from_temp():  # double-clicked inside the zip: Windows unpacked only the exe
+        QMessageBox.warning(None, "VoiceRhino", "VoiceRhino is running from inside the zip file.\n\n"
+                            "Extract it first: right-click the zip → Extract All…, pick a folder that can "
+                            "stay (for example C:\\VoiceRhino), then run VoiceRhino.exe from there.")
+        return 1
+    updater.cleanup()
 
     lock = QLockFile(str(data_dir() / "voicerhino.lock"))
     if not lock.tryLock(100):
@@ -567,6 +578,8 @@ def run_gui(reset: bool = False, file: Path | None = None) -> int:
         config.sources = [SourceConfig(kind="file", file=str(file))]
     controller = Controller(app, config, persist=file is None)
     controller.start(first_run)
+    if updated:
+        controller.tray.showMessage("VoiceRhino updated", f"Now on version {__version__}.", app_icon(), 8000)
     app.aboutToQuit.connect(controller.shutdown)
     code = app.exec()
     lock.unlock()

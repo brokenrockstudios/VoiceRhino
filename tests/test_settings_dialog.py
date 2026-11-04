@@ -833,7 +833,7 @@ def test_general_tab_resources():
     general.refresh_resources()
     assert general.resources_label.text().startswith("CPU 0.5 cores (")
     assert "of your CPU) · RAM" in general.resources_label.text()
-    assert "0.5 cores over 1 min, 0.8 cores over 5 min" in general.resources_hint.text()
+    assert general.resources_hint.text() == "Average: 0.5 cores over 1 min · 0.8 cores over 5 min"
 
 
 def test_window_resources_choice():
@@ -907,3 +907,34 @@ def test_outline_color_and_row_order():
     assert labels[-1] == "Move to screen:"
     win.view_list.setCurrentRow(1)  # history windows draw no outline
     assert not win._form.isRowVisible(win._caption_fields[0])
+
+
+def test_update_button_in_the_portable_build(monkeypatch, tmp_path):
+    release = Release("99.0.0", "https://example.com/release", zip_url="https://example.com/x-win64.zip",
+                      zip_size=70_000_000, sha256="ab" * 32)
+    from voicerhino import updates
+
+    monkeypatch.setattr(settings, "latest_release", lambda: (updates.record_check(), release)[1])
+    monkeypatch.setattr(settings.updater, "supported", lambda: True)
+    new = tmp_path / "new"
+    downloads, launched, quits = [], [], []
+    monkeypatch.setattr(settings.updater, "download", lambda r, progress: downloads.append(r) or new)
+    monkeypatch.setattr(settings.updater, "launch_finish", launched.append)
+    monkeypatch.setattr(settings.QApplication, "quit", lambda *_: quits.append(True))
+    dialog, _ = make_dialog(AppConfig())
+    general = dialog.general_tab
+    assert general.install_button.isHidden()
+    assert general.checked_hint.text() == "Never checked"
+    general.check_for_updates()
+    deadline = time.monotonic() + 5
+    while not general.update_button.isEnabled() and time.monotonic() < deadline:
+        APP.processEvents()
+        time.sleep(0.01)
+    assert not general.install_button.isHidden() and "70 MB" in general.update_label.text()
+    assert general.checked_hint.text().startswith("Last checked")
+    general.install_update()
+    deadline = time.monotonic() + 5
+    while not quits and time.monotonic() < deadline:
+        APP.processEvents()
+        time.sleep(0.01)
+    assert downloads == [release] and launched == [new] and quits == [True]

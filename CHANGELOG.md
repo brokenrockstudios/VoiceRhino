@@ -3,6 +3,18 @@
 What changed in each VoiceRhino release. Download releases from the
 [Releases page](https://github.com/brokenrockstudios/VoiceRhino/releases).
 
+## 0.2.0 (2026-11-03)
+
+- **A real app: unzip and double-click `VoiceRhino.exe`.** No more `run.bat`, no first-run install of
+  Python and packages, no console window. The download is ~70 MB; models still download when you
+  pick them. It's portable: nothing is installed, and deleting the folder removes it.
+- **One-click updates.** Settings › General › _Check for updates_ shows when you last checked; if a
+  newer version is out, _Update_ downloads it, checks it, and restarts VoiceRhino with it. If the
+  new version doesn't start, the old one is put back. VoiceRhino still never checks by itself.
+- **GPU Whisper without `install-gpu.bat`.** Picking a Whisper model downloads the GPU add-on
+  (~1.4 GB, NVIDIA cards only) once, with progress on screen.
+- Running `VoiceRhino.exe` from inside the zip (without extracting it) now says to extract it first.
+
 ## 0.1.2 (2026-11-01)
 
 - **Translate into Chinese or Spanish.** Settings › Translation › _Translate into_ can now be

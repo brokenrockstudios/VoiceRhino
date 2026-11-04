@@ -23,6 +23,7 @@ from .catalog import (
     get_model,
     supports_live_model,
 )
+from . import gpu_addon
 from .download import local_name
 
 if TYPE_CHECKING:
@@ -63,6 +64,7 @@ def _known() -> dict[str, tuple[str, str]]:
                 known[path] = (TRANSLATE_PREFIX + path, f"Translation: {spec.name}")
     known[local_name(LLAMA_CPP)] = (TRANSLATE_PREFIX + local_name(LLAMA_CPP),
                                     "llama.cpp (runs the Hy-MT2 translation model)")
+    known[gpu_addon.FOLDER] = (gpu_addon.KEY, "GPU add-on: faster-whisper + NVIDIA CUDA libraries (Whisper models)")
     return known
 
 
@@ -115,6 +117,8 @@ def used_keys(config: AppConfig) -> set[str]:
     except KeyError:
         spec = get_model(DEFAULT_MODEL_ID)  # what the app falls back to
     keys = {VAD_KEY, spec.id}
+    if spec.family == "faster_whisper":
+        keys.add(gpu_addon.KEY)
     if config.asr.live_model and supports_live_model(spec):
         keys.add(config.asr.live_model)
     if config.speakers.voice_enabled:

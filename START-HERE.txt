@@ -1,14 +1,14 @@
 VoiceRhino - live captions for Windows
 =======================================================
 
-1. Unzip this folder somewhere it can stay, e.g. C:\VoiceRhino
+1. Extract this folder somewhere it can stay, e.g. C:\VoiceRhino
+   (right-click the zip -> Extract All...). Nothing gets installed; deleting the
+   folder removes VoiceRhino. Your settings and models are kept in AppData.
 
-2. Double-click run.bat
-   - The first time, it installs what it needs (uv + Python 3.12 + packages, a few
-     minutes), then the app downloads its speech model (~640 MB, progress is shown
+2. Double-click VoiceRhino.exe
+   - The first time, the app downloads its speech model (~640 MB, progress is shown
      on screen). Needs internet once; after that it starts in seconds.
-   - Windows may warn about a file from the internet: click "More info" -> "Run anyway"
-     (or "Run").
+   - Windows may warn about an app from the internet: click "More info" -> "Run anyway".
 
 3. A CC icon appears in the system tray (bottom right; it may hide under the ^ arrow).
    Two windows with dashed borders appear: the CAPTION bar and the HISTORY window.
@@ -36,5 +36,7 @@ Tips
   Settings -> Audio shows a meter of what VoiceRhino hears. If Discord is muted in the
   Volume Mixer, "Single app" captions stop.
 - Everything runs on this PC (CPU only by default); no audio is sent anywhere.
+- Updates: right-click the CC icon -> Settings -> General -> Check for updates, then
+  Update. VoiceRhino never checks by itself.
 
 More details: README.md (open it with Notepad) and the docs folder.

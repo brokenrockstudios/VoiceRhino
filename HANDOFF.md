@@ -22,7 +22,10 @@ latency on synthetic TTS speech, loopback capture, per-app capture of the real D
   handful of typed English lines, not on a real session.
 - How accuracy feels on real Discord audio. The quiet-audio boost and the −55 dBFS warning were tuned
   on TTS turned down digitally, not on real volume settings.
-- `run.bat`'s first-time uv + Python bootstrap (sandbox issue, §3); installs on other PCs suggest it's fine.
+- The GitHub Actions release build (never run yet), including compiling PyInstaller's bootloader there.
+- The GPU add-on's real download from PyPI (1.4 GB): its install was tested with local wheels and
+  its result (copied from this venv) ran Whisper Turbo on the GPU in the frozen exe.
+- The portable exe on a clean PC (only run here) and on Windows 10; SmartScreen/Defender reactions.
 - Catalog models never downloaded here: Parakeet v3 / Unified, Moonshine, SenseVoice, Whisper Medium /
   Large v3 / Distil, Nemotron 560 ms. URLs and file patterns were checked, never loaded.
 
@@ -35,7 +38,8 @@ src/voicerhino/
   paths.py        config/models/logs dirs (env overrides VOICERHINO_*)
   pipeline.py     CaptionProcessor (pure, sample-clocked) + CaptionPipeline (thread, resample, gap fill)
   resources.py    own CPU/RAM (psutil) + GPU (Windows PDH counters) use, sampled every 2 s; 1/5 min averages
-  updates.py      manual "Check for updates": GitHub latest-release tag vs __version__ (never automatic)
+  updates.py      manual "Check for updates": GitHub latest release (version, -win64.zip asset, sha256)
+  updater.py      one-click update of the portable build: download, verify, self-swap, self-test, rollback
   transcript.py   Utterance + TranscriptStore (finals + live partial per source; listeners)
   audio/          AudioSource base, devices, wasapi (PyAudioWPatch), process_loopback (ctypes COM),
                   app_source (follow an exe), file_source, gain (AutoGain, levels)
@@ -44,6 +48,7 @@ src/voicerhino/
   translate/      worker + language guess, catalog, opus (CTranslate2), llama (hidden Hy-MT2 llama-server)
   ui/             app (Controller, tray, model loading), overlay, settings (7 tabs), winutil, theme
 tests/            conftest builds synthetic speech with Windows TTS (tools/make_test_audio.py)
+packaging/        PyInstaller spec, build.py (icon, version resource, GPU add-on list, zip + sha256)
 tools/            bench, eval_speakers, try_loopback, try_process_loopback, screenshot_overlays/_settings/_readme
 ```
 
@@ -80,11 +85,26 @@ Commands are in `CLAUDE.md`. Extras:
 - Already approved and on disk: Parakeet v2 int8, Silero VAD, TitaNet-small (+ WeSpeaker, CAM++), Whisper
   Large v3 Turbo + CUDA libs, Nemotron streaming 160 ms and 80 ms (the 80 ms one, 633 MB, was rejected and
   isn't in the catalog; the user may delete it), Qwen3-ASR 0.6B, Opus-MT zh, Hy-MT2.
-- Release bundle: `.gitattributes` keeps .bat/.txt CRLF and leaves HANDOFF.md/CLAUDE.md out of the zip. Models
-  aren't bundled: ~640 MB downloaded on first run (+650 MB for word-by-word live text). If `VoiceRhino.zip` is
-  locked by another program, build `VoiceRhino-<commit>.zip` and send the newest.
+- Release bundle: `packaging/build.py` → `dist/VoiceRhino-<ver>-win64.zip` (~70 MB, 192 MB unpacked; Qt trimmed
+  to Core/Gui/Widgets ≈ 44 MB, ctranslate2 61 MB, sherpa-onnx 23 MB, numpy 28 MB). Models are never bundled:
+  ~640 MB downloaded on first run (+650 MB for word-by-word live text). The build venv must not have the gpu
+  extra. A file in `%TEMP%` (including anything under the scratchpad) trips the "running from inside the zip"
+  check, so test frozen builds from a folder like `build\updtest`.
 
 ## 4. Decisions
+
+- **Portable PyInstaller folder build, no installer** (user's choice): unzip and run `VoiceRhino.exe`; no
+  .bat/PowerShell anywhere. One-file and UPX are avoided (antivirus), and CI compiles its own bootloader.
+  Config/models stay in AppData so a moved or deleted folder loses nothing.
+- **GPU add-on instead of install-gpu.bat** (`asr/gpu_addon.py`): picking a Whisper model in the exe downloads
+  the `gpu` extra's wheels pinned by `uv.lock` (list in the bundled `gpu_addon.json`, sha256-checked) into
+  `models\gpu-addon`, appended to `sys.path` after the bundled packages. onnxruntime is skipped (faster-whisper
+  imports it only for its own VAD). The exe bundles the whole stdlib (+3 MB) so add-on packages find theirs.
+- **Updates only when asked** (`updates.py` check + `updater.py` apply): Update downloads the release's
+  `-win64.zip`, checks GitHub's asset digest or the `.sha256` file, unpacks to `<app>\_update`, then the NEW
+  exe (`--finish-update`) waits for the old one to exit, moves the shipped items to `_previous`, copies the new
+  ones, runs `--self-test` and rolls back on failure. Files the release doesn't ship are left alone. "Last
+  checked" is `%APPDATA%\VoiceRhino\update_check.json`. Releases are drafts until published by hand.
 
 - **Python, not C#/C++** (widest model choice). Approach: VAD + partial re-decode + final decode.
 - **Parakeet v2 int8 on CPU** as main model: 2.1% WER, 88 ms final decode, 0.46 cores, 0 VRAM on the bench

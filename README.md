@@ -29,13 +29,14 @@ history window (unlocked: dashed frames, drag to move). Names come from voice co
 
 ## Quick start
 
-1. Download **`VoiceRhino-<version>.zip`** from the
+1. Download **`VoiceRhino-<version>-win64.zip`** (~70 MB) from the
    [Releases page](https://github.com/brokenrockstudios/VoiceRhino/releases) (under _Assets_ of
-   the latest release) and unzip it somewhere it can stay, e.g. `C:\VoiceRhino`.
-2. Double-click **`run.bat`**. Windows may warn about a file from the internet: click
-   _More info_ → _Run anyway_. The first run installs what it needs (a few minutes: uv,
-   Python 3.12 and packages), then the app downloads its speech model (~640 MB) while
-   showing progress. After that it starts in seconds.
+   the latest release). Right-click it → _Extract All…_ and put the folder somewhere it can
+   stay, e.g. `C:\VoiceRhino`. Nothing is installed: it's a portable app, and deleting the
+   folder removes it.
+2. Double-click **`VoiceRhino.exe`**. Windows may warn about an app from the internet: click
+   _More info_ → _Run anyway_. The first time, the app downloads its speech model (~640 MB)
+   while showing progress. After that it starts in seconds.
 3. A **CC** icon appears in the system tray and two windows appear with dashed frames:
    the **caption bar** and the **history** window. Drag them where you want them
    (drag edges to resize), on any monitor.
@@ -53,11 +54,16 @@ history window (unlocked: dashed frames, drag to move). Names come from voice co
 
 ### Updating
 
-Settings → General → **Check for updates** asks GitHub whether there's a newer release and links
-to its page (VoiceRhino never checks by itself). To update, download the new zip, unzip it into a
-new folder (or delete the old one first) and run `run.bat` there. Your settings and downloaded
-models live outside the VoiceRhino folder, so they carry over; the first run installs any new
-packages.
+Settings → General → **Check for updates** asks GitHub whether there's a newer release
+(VoiceRhino never checks by itself; the date of the last check is shown next to the button). If
+there is, click **Update**: VoiceRhino downloads the new zip, checks it, swaps its files and
+restarts. If the new version doesn't start, the old one is put back. Your settings and
+downloaded models live outside the VoiceRhino folder, so they're kept.
+
+If VoiceRhino's folder can't be written to (for example under `Program Files`), move it somewhere
+like `C:\VoiceRhino` first, or download the zip by hand. **Coming from 0.1.2 or older** (the
+`run.bat` version): download the new zip once by hand and extract it into a new folder; settings
+and models carry over, and you can delete the old folder.
 
 ## Requirements and performance
 
@@ -176,9 +182,14 @@ for English text from another language, use Settings → Translation or Whisper'
 | Moonshine Base / Tiny          | English                                               | CPU     | lightest, less accurate                                  |
 | SenseVoice Small               | Chinese, English, Japanese, Korean, Cantonese         | CPU     | very fast                                                |
 | Qwen3-ASR 0.6B                 | 30 languages incl. Spanish, Chinese, Japanese, Korean | CPU     | most accurate here for non-English; ~2.5× Parakeet's CPU |
-| Whisper Large v3 Turbo         | 99 languages                                          | GPU     | the well-known Whisper; needs `install-gpu.bat`          |
-| Distil-Whisper Large v3.5      | English                                               | GPU     | needs `install-gpu.bat`                                  |
+| Whisper Large v3 Turbo         | 99 languages                                          | GPU     | the well-known Whisper; needs the GPU add-on             |
+| Distil-Whisper Large v3.5      | English                                               | GPU     | needs the GPU add-on                                     |
 | Whisper Medium / Large v3      | 99 languages, can translate → English                 | GPU     | set Task = Translate (Turbo can't translate)             |
+
+The GPU models need an NVIDIA graphics card. The first time you pick one, VoiceRhino also
+downloads the **GPU add-on** (~1.4 GB, once): faster-whisper and NVIDIA's CUDA libraries, the
+exact versions it was built with, from the Python Package Index, each checked against its
+checksum. Settings → General lists it with the models, so it can be deleted again.
 
 ### Translation
 
@@ -373,6 +384,20 @@ uv run python tools/bench.py parakeet-tdt-0.6b-v2-int8 fw-large-v3-turbo:cuda
 uv run python tools/bench.py parakeet-tdt-0.6b-v2-int8 --live nemotron-streaming-en-160ms-int8 --realtime
 uv run python tools/screenshot_readme.py   # re-render the README images in docs/images
 ```
+
+### Building the portable zip
+
+```
+uv sync --group build        # a CPU-only venv: without --extra gpu, so CUDA never ends up in the zip
+uv run python packaging/build.py             # dist/VoiceRhino-<version>-win64.zip + .sha256
+uv run python packaging/build.py --console   # debug build that prints to a terminal
+```
+
+`packaging/voicerhino.spec` is a PyInstaller folder build (not one-file, no UPX: both trip antivirus
+heuristics) trimmed to the Qt modules VoiceRhino uses. `build.py` also writes `gpu_addon.json`, the
+pinned wheels of the GPU add-on, from `uv.lock`. Pushing a `v*` tag runs
+`.github/workflows/release.yml`, which builds the zip with a freshly compiled PyInstaller launcher
+and attaches it to a draft release; publishing the draft is what "Check for updates" sees.
 
 `bench.py` feeds audio as fast as it can by default, which leaves decode time out of the
 latencies; `--realtime` plays it at real speed so the numbers match what you'd see on screen.
