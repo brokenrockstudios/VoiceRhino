@@ -15,7 +15,9 @@ explains the choices (`internal/` is gitignored, so it may be absent).
   `--ignore=tests/test_process_loopback.py` to skip the ones that play quiet tones).
 - Benchmark: `.venv/Scripts/python tools/bench.py parakeet-tdt-0.6b-v2-int8 --live nemotron-streaming-en-160ms-int8`
   (add `--realtime` for latencies as seen on screen; the default hides decode time).
-- Release zip: `git archive --format=zip --prefix=VoiceRhino/ -o VoiceRhino.zip HEAD`
+- Portable build: `.venv/Scripts/python packaging/build.py` (`--console` for a debug exe) needs a
+  CPU-only venv (`python -m uv sync --group build`, no `--extra gpu`) → `dist/VoiceRhino-<ver>-win64.zip`.
+  CI (`.github/workflows/release.yml`) builds it on `v*` tags into a draft release.
 
 ## Rules
 

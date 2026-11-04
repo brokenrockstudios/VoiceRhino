@@ -59,10 +59,12 @@ _RUN_NAME = "VoiceRhino"
 
 
 def _launch_command() -> str:
-    """The windowless launcher created by `uv sync` for the gui-script entry point."""
+    """VoiceRhino.exe in the portable build, else the windowless launcher `uv sync` made."""
     import sys
     from pathlib import Path
 
+    if getattr(sys, "frozen", False):
+        return f'"{Path(sys.executable).resolve()}"'
     gui = Path(sys.prefix) / "Scripts" / "voicerhino-gui.exe"
     if gui.exists():
         return f'"{gui}"'

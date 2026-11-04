@@ -10,6 +10,12 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "tests" / "_out"
 
 
+@pytest.fixture(autouse=True)
+def private_config(monkeypatch, tmp_path):
+    """Tests never write into the real settings folder (e.g. the update check's date)."""
+    monkeypatch.setenv("VOICERHINO_CONFIG", str(tmp_path / "config"))
+
+
 def word_error_rate(reference: str, hypothesis: str) -> float:
     norm = lambda s: [w.strip(".,?!'\"").lower() for w in s.split() if w.strip(".,?!'\"")]
     ref, hyp = norm(reference), norm(hypothesis)

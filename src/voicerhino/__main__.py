@@ -42,6 +42,21 @@ def list_models() -> None:
         print(f"{m.id:28} {have:>11}  {m.name}")
 
 
+def self_test() -> int:
+    """Exit 0 if the app's native pieces load (run by an update before it keeps the new files)."""
+    try:
+        import ctranslate2  # noqa: F401
+        import numpy  # noqa: F401
+        import sherpa_onnx  # noqa: F401
+        from PySide6 import QtWidgets  # noqa: F401
+
+        from .ui import app  # noqa: F401
+    except Exception:
+        logging.getLogger(__name__).exception("self-test failed")
+        return 1
+    return 0
+
+
 def run_console(args) -> None:
     """Print captions in the terminal: partials update in place, finals scroll."""
     from .asr.catalog import DEFAULT_MODEL_ID, VAD_MODELS, get_model, supports_live_model
@@ -101,11 +116,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--list-models", action="store_true", help="show available models and exit")
     parser.add_argument("--reset", action="store_true", help="start with default settings")
     parser.add_argument("-v", "--verbose", action="store_true")
+    # Used by the one-click update of the portable build (updater.py), not by people.
+    parser.add_argument("--finish-update", type=Path, help=argparse.SUPPRESS)
+    parser.add_argument("--wait-pid", type=int, default=0, help=argparse.SUPPRESS)
+    parser.add_argument("--self-test", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--updated", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     for stream in (sys.stdout, sys.stderr):
         if stream is not None and hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
     setup_logging(args.verbose)
+    if args.self_test:
+        return self_test()
+    if args.finish_update:
+        from .updater import finish
+
+        return finish(args.finish_update, args.wait_pid)
     if args.list_devices:
         list_devices()
         return 0
@@ -117,7 +143,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     from .ui.app import run_gui
 
-    return run_gui(reset=args.reset, file=args.file)
+    return run_gui(reset=args.reset, file=args.file, updated=args.updated)
 
 
 if __name__ == "__main__":

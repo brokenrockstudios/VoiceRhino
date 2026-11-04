@@ -15,6 +15,7 @@ import numpy as np
 
 from ..paths import models_dir
 from .catalog import ModelSpec
+from . import gpu_addon
 from .download import Progress, ensure_download
 
 log = logging.getLogger(__name__)
@@ -161,10 +162,16 @@ class FasterWhisperEngine(Engine):
 
     def __init__(self, spec: ModelSpec, options: EngineOptions):
         super().__init__(spec, options)
-        _add_cuda_dll_dirs()
+        if gpu_addon.needed():  # portable build: the downloaded add-on
+            gpu_addon.activate()
+        else:
+            _add_cuda_dll_dirs()
         try:
             from faster_whisper import WhisperModel
         except ImportError as exc:  # optional extra
+            if gpu_addon.needed():
+                raise RuntimeError("the GPU add-on isn't installed or is incomplete; pick the model again "
+                                   "to download it") from exc
             raise RuntimeError("faster-whisper isn't installed; run: uv sync --extra gpu") from exc
         device = options.device if options.device in {"cpu", "cuda"} else "cpu"
         compute = "int8_float16" if device == "cuda" else "int8"
@@ -233,8 +240,10 @@ def load_streaming_engine(spec: ModelSpec, num_threads: int = 1, progress: Progr
 
 def load_engine(spec: ModelSpec, options: EngineOptions, progress: Progress | None = None,
                 cancel: threading.Event | None = None) -> Engine:
-    """Download the model if needed and build its engine (slow: call off the UI thread)."""
+    """Download the model if needed and build its engine (slow: call off the UI thread).
+    GPU (faster-whisper) models first fetch the portable build's GPU add-on."""
     if spec.family == "faster_whisper":
+        gpu_addon.ensure(progress, cancel)
         return FasterWhisperEngine(spec, options)
     folder = ensure_download(spec.source, progress, cancel)
     engine = SherpaEngine(spec, options, folder)

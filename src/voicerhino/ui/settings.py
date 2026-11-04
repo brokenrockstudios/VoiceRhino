@@ -21,6 +21,7 @@ import logging
 import os
 import re
 import threading
+import time
 from contextlib import contextmanager
 from functools import partial
 from pathlib import Path
@@ -77,10 +78,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-import voicerhino
 
 from .. import __version__, paths
-from ..asr import download, storage
+from ..asr import download, gpu_addon, storage
 from ..asr.catalog import ASR_MODELS, STREAMING_MODELS, ModelSpec, get_model, supports_live_model
 from ..audio import devices as audio_devices
 from ..audio.devices import DEFAULT_OUTPUT_KEY, DeviceInfo
@@ -88,7 +88,8 @@ from ..audio.gain import SILENCE_DB
 from ..config import AppConfig, SourceConfig, ViewConfig
 from ..pipeline import QUIET_DB, PipelineSettings, SourceLevel
 from ..resources import ResourceMonitor, describe
-from ..updates import RELEASES_PAGE, Release, is_newer, latest_release
+from .. import updater
+from ..updates import RELEASES_PAGE, Release, is_newer, last_checked, latest_release
 from ..translate import is_model_downloaded
 from ..translate.catalog import TARGETS, TRANSLATION_MODELS, TranslationModel
 
@@ -154,12 +155,19 @@ _NO_INPUT = "input:"  # "a microphone" while none is listed; replaced once one s
 
 
 def discord_setup_doc() -> Path:
-    """docs/discord-setup.md in the checkout VoiceRhino runs from."""
-    return Path(voicerhino.__file__).resolve().parents[2] / "docs" / "discord-setup.md"
+    """docs/discord-setup.md next to VoiceRhino.exe (or in the checkout it runs from)."""
+    return paths.app_dir() / "docs" / "discord-setup.md"
 
 
 def model_status(spec: ModelSpec) -> str:
     if spec.family == "faster_whisper":
+        if gpu_addon.needed():  # portable build
+            if not gpu_addon.nvidia_driver_present():
+                return "Needs an NVIDIA graphics card (no NVIDIA driver found)"
+            if not gpu_addon.is_installed():
+                return (f"Downloads the GPU add-on (~{gpu_addon.total_mb():,} MB, once) and the model "
+                        f"(~{spec.size_mb:,} MB) on first use")
+            return f"GPU add-on installed; downloads ~{spec.size_mb} MB on first use"
         if importlib.util.find_spec("faster_whisper") is None:
             return "Needs the GPU extra (uv sync --extra gpu); downloads on first use"
         return f"GPU extra installed; downloads ~{spec.size_mb} MB on first use"
@@ -1803,6 +1811,8 @@ class TranslationTab(_Tab):
 
 class GeneralTab(_Tab):
     _update_checked = Signal(object)  # Release, or the exception that stopped the check
+    _install_progress = Signal(int, int)  # bytes done, total
+    _install_done = Signal(object)  # the unpacked new version's folder, or the exception
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -1810,11 +1820,21 @@ class GeneralTab(_Tab):
         self.update_button.setToolTip("Asks GitHub for the latest release. Only when you click: "
                                       "VoiceRhino never checks by itself.")
         self.update_button.clicked.connect(self.check_for_updates)
+        self.install_button = QPushButton("Update")
+        self.install_button.setToolTip("Downloads the new version, then restarts VoiceRhino with it. "
+                                       "Settings and downloaded models are kept.")
+        self.install_button.clicked.connect(self.install_update)
+        self.install_button.setVisible(False)
+        self.checked_hint = Hint()
+        self._show_last_checked()
         self.update_label = QLabel()
         self.update_label.setWordWrap(True)
         self.update_label.setOpenExternalLinks(True)
         self.update_label.setVisible(False)
+        self._release: Release | None = None
         self._update_checked.connect(self._show_update)
+        self._install_progress.connect(self._show_install_progress)
+        self._install_done.connect(self._finish_install)
         self.captions_check = QCheckBox("On")
         self.captions_check.setToolTip("Turn live captioning on or off")
         self.captions_check.toggled.connect(partial(self._set, "captions_enabled"))
@@ -1863,7 +1883,8 @@ class GeneralTab(_Tab):
             "are click-through; unlocked ones can be dragged and resized. Include Ctrl, Alt or "
             "Shift so it doesn't fire while typing."))
         form.addRow("Folders:", _field(_row(self.config_button, self.log_button, stretch=True)))
-        form.addRow("Version:", _field(_row(QLabel(f"VoiceRhino {__version__}"), self.update_button, stretch=True),
+        form.addRow("Version:", _field(_row(QLabel(f"VoiceRhino {__version__}"), self.update_button,
+                                            self.install_button, self.checked_hint, stretch=True),
                                        self.update_label))
         self.resources_label = QLabel()
         self.resources_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -1925,17 +1946,86 @@ class GeneralTab(_Tab):
 
         threading.Thread(target=work, name="update-check", daemon=True).start()
 
+    def _show_last_checked(self) -> None:
+        when = last_checked()
+        self.checked_hint.setText(time.strftime("Last checked %d %b %Y, %H:%M", time.localtime(when))
+                                  if when else "Never checked")
+
     def _show_update(self, result: object) -> None:
         self.update_button.setEnabled(True)
+        self._show_last_checked()
+        self._release = None
+        self.install_button.setVisible(False)
         if isinstance(result, Release) and is_newer(result.version):
-            self.update_label.setText(
-                f'VoiceRhino {result.version} is out: <a href="{html.escape(result.url)}">open the download '
-                "page</a>. Unzip it into a new folder and run run.bat there; your settings and models are kept.")
+            page = html.escape(result.url)
+            if updater.supported() and result.zip_url:
+                self._release = result
+                self.install_button.setVisible(True)
+                self.install_button.setEnabled(True)
+                size = f", {result.zip_size / 1e6:.0f} MB" if result.zip_size else ""
+                self.update_label.setText(
+                    f'VoiceRhino {result.version} is out (<a href="{page}">what\'s new</a>{size}). Click '
+                    "Update: VoiceRhino downloads it and restarts. Your settings and models are kept.")
+            else:
+                self.update_label.setText(
+                    f'VoiceRhino {result.version} is out: <a href="{page}">open the download page</a>. '
+                    "Unzip it into a new folder and run VoiceRhino.exe there; your settings and models are kept.")
         elif isinstance(result, Release):
             self.update_label.setText(f"You have the latest version ({result.version}).")
         else:
             self.update_label.setText(f"Couldn't check ({html.escape(str(result))}). The "
                                       f'<a href="{RELEASES_PAGE}">Releases page</a> lists every version.')
+
+    def install_update(self) -> None:
+        release = self._release
+        if release is None:
+            return
+        self.install_button.setEnabled(False)
+        self.update_button.setEnabled(False)
+        self.update_label.setText(f"Downloading VoiceRhino {release.version}…")
+
+        def work() -> None:
+            last = [0.0]
+
+            def progress(done: int, total: int) -> None:
+                if time.monotonic() - last[0] > 0.25 or done >= total:
+                    last[0] = time.monotonic()
+                    try:
+                        self._install_progress.emit(done, total)
+                    except RuntimeError:
+                        pass
+
+            try:
+                result: object = updater.download(release, progress)
+            except Exception as exc:
+                log.warning("update download failed: %s", exc)
+                result = exc
+            try:
+                self._install_done.emit(result)
+            except RuntimeError:  # the dialog was closed meanwhile
+                pass
+
+        threading.Thread(target=work, name="update-download", daemon=True).start()
+
+    def _show_install_progress(self, done: int, total: int) -> None:
+        if self._release is not None and total:
+            self.update_label.setText(f"Downloading VoiceRhino {self._release.version}… "
+                                      f"{done / total:.0%} of {total / 1e6:.0f} MB")
+
+    def _finish_install(self, result: object) -> None:
+        if isinstance(result, Path):
+            self.update_label.setText("Restarting VoiceRhino with the new version…")
+            try:
+                updater.launch_finish(result)
+            except OSError as exc:
+                result = exc
+            else:
+                QApplication.instance().quit()
+                return
+        self.install_button.setEnabled(True)
+        self.update_button.setEnabled(True)
+        self.update_label.setText(f"Couldn't update ({html.escape(str(result))}). The "
+                                  f'<a href="{RELEASES_PAGE}">Releases page</a> has the zip to download by hand.')
 
     # -- resources --
 
