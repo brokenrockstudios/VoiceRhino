@@ -833,7 +833,7 @@ def test_general_tab_resources():
     general.refresh_resources()
     assert general.resources_label.text().startswith("CPU 0.5 cores (")
     assert "of your CPU) · RAM" in general.resources_label.text()
-    assert "0.5 cores over 1 min, 0.8 cores over 5 min" in general.resources_hint.text()
+    assert general.resources_hint.text() == "Average: 0.5 cores over 1 min · 0.8 cores over 5 min"
 
 
 def test_window_resources_choice():
