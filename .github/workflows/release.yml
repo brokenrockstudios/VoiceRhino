@@ -21,6 +21,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The runner's TEMP is a short 8.3 path (C:\Users\RUNNER~1\...), which breaks compiling
+      # PyInstaller's bootloader (its build tool mixes short and long paths). Use the runner's
+      # own temp folder for every later step.
+      - name: Use a temp folder without short names
+        shell: pwsh
+        run: |
+          "TEMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+          "TMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+
       - uses: astral-sh/setup-uv@v6
 
       - name: Install Python and packages (CPU only, no GPU extra)
