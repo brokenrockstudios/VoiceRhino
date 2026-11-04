@@ -31,6 +31,8 @@ jobs:
           "TMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
 
       - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: false
 
       - name: Install Python and packages (CPU only, no GPU extra)
         run: |
